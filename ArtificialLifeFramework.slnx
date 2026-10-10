@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/samples/">
+    <Project Path="samples/ArtificialLife.Demo/ArtificialLife.Demo.csproj" />
+  </Folder>
+  <Folder Name="/src/">
+    <Project Path="src/ArtificialLife.Core/ArtificialLife.Core.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/ArtificialLife.Tests/ArtificialLife.Tests.csproj" />
+  </Folder>
+</Solution>
