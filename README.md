@@ -26,3 +26,8 @@ world.Step(1);
 
 Dinheiro usa centavos inteiros. Necessidades, bens e acoes usam identificadores textuais para que cada jogo possa adicionar regras sem alterar a biblioteca.
 
+
+## API integrada
+
+Use `PortableSimulation` como relogio fixo e fronteira da engine. `SimulationPresenter` envia snapshots para um adaptador de Godot, Unity, Unreal ou engine propria. Veja `MIGRATION.md` para a origem de cada sistema.
+
