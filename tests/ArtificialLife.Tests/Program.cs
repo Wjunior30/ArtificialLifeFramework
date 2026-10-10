@@ -31,5 +31,20 @@ giver.Inventory.Add("food", 3);
 Check(HouseholdCare.TryDeliver(giver, receiver, "food", 2, 1), "Care delivery should succeed.");
 Check(giver.Inventory.Quantity("food") == 1 && receiver.Inventory.Quantity("food") == 2, "Goods must move physically.");
 
-Console.WriteLine("ArtificialLife.Tests: 4 checks passed.");
+var marketEconomy = new Economy();
+var buyer = Agent.Create(ids.Next("agent"), "Buyer"); var seller = Agent.Create(ids.Next("agent"), "Seller"); var treasury = ids.Next("treasury");
+marketEconomy.Open(buyer.Id, new Money(10_000)); marketEconomy.Open(seller.Id, Money.Zero); marketEconomy.Open(treasury, Money.Zero);
+seller.Inventory.Add("meal", 4);
+new Market(marketEconomy, new EconomicPolicy { SalesTaxBasisPoints = 1_000 }, treasury).Trade(2, buyer, seller, "meal", 2, new Money(1_000));
+Check(seller.Inventory.Quantity("meal") == 2 && buyer.Inventory.Quantity("meal") == 2, "Market must transfer physical goods.");
+Check(marketEconomy.BalanceOf(seller.Id).Cents == 1_800 && marketEconomy.BalanceOf(treasury).Cents == 200, "Market must split price and tax.");
+
+var firmId = ids.Next("firm"); var workerId = ids.Next("agent"); var firmEconomy = new Economy();
+firmEconomy.Open(firmId, new Money(5_000)); firmEconomy.Open(workerId, Money.Zero);
+var recipe = new Recipe("bakery", new Dictionary<string, long> { ["grain"] = 2 }, new Dictionary<string, long> { ["bread"] = 1 });
+var firm = new Firm(firmId, seller.Id, "Bakery", recipe, new Money(500)); firm.Hire(workerId); firm.Inventory.Add("grain", 2);
+Check(firm.RunProductionCycle(3, firmEconomy), "Firm production should run when inputs and payroll exist.");
+Check(firm.Inventory.Quantity("bread") == 1 && firmEconomy.BalanceOf(workerId).Cents == 500, "Production and wages must be materialized.");
+
+Console.WriteLine("ArtificialLife.Tests: 8 checks passed.");
 

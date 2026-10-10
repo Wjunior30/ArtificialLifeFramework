@@ -59,6 +59,8 @@ public sealed class Economy
     private long _issuedCents;
     public IReadOnlyList<LedgerEntry> Ledger => _ledger;
     public IEnumerable<Account> Accounts => _accounts.Values.OrderBy(x => x.Owner);
+    public bool HasAccount(EntityId owner) => _accounts.ContainsKey(owner);
+    public Money BalanceOf(EntityId owner) => _accounts.TryGetValue(owner, out var account) ? account.Balance : throw new KeyNotFoundException(owner.ToString());
 
     public Account Open(EntityId owner, Money openingBalance)
     {
