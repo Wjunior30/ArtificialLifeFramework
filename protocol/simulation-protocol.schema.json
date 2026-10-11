@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://simulationlife.local/schema/protocol-v1.json",
+  "title": "SimulationLife protocol v1 command",
+  "type": "object",
+  "required": ["protocol", "kind", "id", "payload"],
+  "additionalProperties": false,
+  "properties": {
+    "protocol": { "const": 1 },
+    "kind": {
+      "enum": ["advance", "set_need", "snapshot", "export_snapshot", "restore"]
+    },
+    "id": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "payload": { "type": "object" }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "kind": { "const": "advance" } } },
+      "then": {
+        "properties": {
+          "payload": {
+            "type": "object",
+            "required": ["seconds"],
+            "additionalProperties": false,
+            "properties": { "seconds": { "type": "number", "exclusiveMinimum": 0 } }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "kind": { "const": "set_need" } } },
+      "then": {
+        "properties": {
+          "payload": {
+            "type": "object",
+            "required": ["agentId", "need", "value"],
+            "additionalProperties": false,
+            "properties": {
+              "agentId": { "type": "integer", "minimum": 1 },
+              "need": { "enum": ["hunger", "thirst", "energy", "safety", "social", "comfort"] },
+              "value": { "type": "number", "minimum": 0, "maximum": 100 }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "kind": { "enum": ["snapshot", "export_snapshot"] } } },
+      "then": { "properties": { "payload": { "maxProperties": 0 } } }
+    },
+    {
+      "if": { "properties": { "kind": { "const": "restore" } } },
+      "then": {
+        "properties": {
+          "payload": {
+            "type": "object",
+            "required": ["snapshot"],
+            "additionalProperties": false,
+            "properties": { "snapshot": { "type": "object" } }
+          }
+        }
+      }
+    }
+  ]
+}

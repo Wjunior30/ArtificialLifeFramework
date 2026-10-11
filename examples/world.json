@@ -1,0 +1,50 @@
+{
+  "schema": 1,
+  "seed": 173133397,
+  "fixedStepSeconds": 0.1,
+  "worldMinutesPerSecond": 10.0,
+  "startMinute": 480,
+  "distribution": "market",
+  "market": {
+    "account": "firm:market",
+    "initialMoneyCents": 30000,
+    "foodStock": 30,
+    "waterStock": 30,
+    "foodPriceCents": 400,
+    "waterPriceCents": 200
+  },
+  "agents": [
+    {
+      "id": 1,
+      "name": "João",
+      "age": 31,
+      "employerAccount": "firm:market",
+      "initialMoneyCents": 10000,
+      "needs": {
+        "hunger": 75,
+        "thirst": 75,
+        "energy": 70,
+        "safety": 100,
+        "social": 60,
+        "comfort": 75
+      },
+      "inventory": { "food": 2, "water": 1, "medicine": 0 }
+    },
+    {
+      "id": 2,
+      "name": "Maria",
+      "age": 38,
+      "employerAccount": "firm:market",
+      "initialMoneyCents": 10000,
+      "needs": {
+        "hunger": 82,
+        "thirst": 80,
+        "energy": 78,
+        "safety": 100,
+        "social": 68,
+        "comfort": 72
+      },
+      "inventory": { "food": 2, "water": 2, "medicine": 0 }
+    }
+  ]
+}

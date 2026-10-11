@@ -1,0 +1,4 @@
+{"protocol":1,"kind":"snapshot","id":"snapshot-1","payload":{}}
+{"protocol":1,"kind":"set_need","id":"need-1","payload":{"agentId":1,"need":"thirst","value":5}}
+{"protocol":1,"kind":"advance","id":"advance-1","payload":{"seconds":2.0}}
+{"protocol":1,"kind":"export_snapshot","id":"save-1","payload":{}}

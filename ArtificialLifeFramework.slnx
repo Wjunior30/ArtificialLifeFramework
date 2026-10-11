@@ -4,8 +4,12 @@
   </Folder>
   <Folder Name="/src/">
     <Project Path="src/ArtificialLife.Core/ArtificialLife.Core.csproj" />
+    <Project Path="src/SimulationLife.Core/SimulationLife.Core.csproj" />
+    <Project Path="src/SimulationLife.Headless/SimulationLife.Headless.csproj" />
+    <Project Path="src/SimulationLife.Protocol/SimulationLife.Protocol.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/ArtificialLife.Tests/ArtificialLife.Tests.csproj" />
+    <Project Path="tests/SimulationLife.Core.Tests/SimulationLife.Core.Tests.csproj" />
   </Folder>
 </Solution>
