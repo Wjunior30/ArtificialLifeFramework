@@ -1,0 +1,509 @@
+{
+  "schema": 1,
+  "days": 3650,
+  "seeds": [
+    1,
+    7,
+    42,
+    100,
+    2026,
+    65535
+  ],
+  "scenarios": {
+    "baseline": {
+      "FoodMultiplier": 1,
+      "ConflictMultiplier": 1
+    },
+    "scarcity": {
+      "FoodMultiplier": 0.78,
+      "ConflictMultiplier": 1.1
+    },
+    "hostile": {
+      "FoodMultiplier": 0.94,
+      "ConflictMultiplier": 1.65
+    }
+  },
+  "aggregate": {
+    "founded": 242,
+    "upgrades": 362,
+    "alliances": 88,
+    "wars": 237,
+    "battles": 396,
+    "destroyed": 146,
+    "refounded": 78,
+    "cities": 24
+  },
+  "failures": [],
+  "rows": [
+    {
+      "scenario": "baseline",
+      "seed": 1,
+      "days": 3650,
+      "living": 8,
+      "nomads": 5,
+      "stages": {
+        "City": 3,
+        "Hamlet": 5
+      },
+      "Statistics": {
+        "Founded": 17,
+        "Upgrades": 31,
+        "Alliances": 11,
+        "Wars": 18,
+        "Battles": 36,
+        "Destroyed": 9,
+        "Refounded": 4,
+        "Deaths": 184,
+        "Migrations": 82,
+        "PeakSettlements": 11,
+        "PeakPopulation": 217
+      },
+      "fingerprint": "B1281126D960AB77"
+    },
+    {
+      "scenario": "baseline",
+      "seed": 7,
+      "days": 3650,
+      "living": 7,
+      "nomads": 4,
+      "stages": {
+        "Town": 1,
+        "City": 2,
+        "Village": 2,
+        "Hamlet": 2
+      },
+      "Statistics": {
+        "Founded": 19,
+        "Upgrades": 36,
+        "Alliances": 6,
+        "Wars": 32,
+        "Battles": 46,
+        "Destroyed": 12,
+        "Refounded": 6,
+        "Deaths": 235,
+        "Migrations": 95,
+        "PeakSettlements": 10,
+        "PeakPopulation": 225
+      },
+      "fingerprint": "AB9D1362758D0204"
+    },
+    {
+      "scenario": "baseline",
+      "seed": 42,
+      "days": 3650,
+      "living": 14,
+      "nomads": 3,
+      "stages": {
+        "City": 3,
+        "Town": 1,
+        "Village": 4,
+        "Hamlet": 6
+      },
+      "Statistics": {
+        "Founded": 23,
+        "Upgrades": 41,
+        "Alliances": 12,
+        "Wars": 13,
+        "Battles": 34,
+        "Destroyed": 9,
+        "Refounded": 6,
+        "Deaths": 188,
+        "Migrations": 122,
+        "PeakSettlements": 14,
+        "PeakPopulation": 320
+      },
+      "fingerprint": "3DC30AC61533BB45"
+    },
+    {
+      "scenario": "baseline",
+      "seed": 100,
+      "days": 3650,
+      "living": 7,
+      "nomads": 5,
+      "stages": {
+        "City": 1,
+        "Town": 1,
+        "Village": 4,
+        "Camp": 1
+      },
+      "Statistics": {
+        "Founded": 13,
+        "Upgrades": 24,
+        "Alliances": 6,
+        "Wars": 16,
+        "Battles": 19,
+        "Destroyed": 6,
+        "Refounded": 4,
+        "Deaths": 93,
+        "Migrations": 54,
+        "PeakSettlements": 7,
+        "PeakPopulation": 180
+      },
+      "fingerprint": "8EEE915B59C59939"
+    },
+    {
+      "scenario": "baseline",
+      "seed": 2026,
+      "days": 3650,
+      "living": 9,
+      "nomads": 7,
+      "stages": {
+        "City": 2,
+        "Town": 1,
+        "Village": 3,
+        "Hamlet": 2,
+        "Camp": 1
+      },
+      "Statistics": {
+        "Founded": 16,
+        "Upgrades": 30,
+        "Alliances": 4,
+        "Wars": 12,
+        "Battles": 26,
+        "Destroyed": 7,
+        "Refounded": 5,
+        "Deaths": 166,
+        "Migrations": 77,
+        "PeakSettlements": 10,
+        "PeakPopulation": 222
+      },
+      "fingerprint": "E00741EAD57AC914"
+    },
+    {
+      "scenario": "baseline",
+      "seed": 65535,
+      "days": 3650,
+      "living": 4,
+      "nomads": 5,
+      "stages": {
+        "Town": 2,
+        "Hamlet": 1,
+        "Camp": 1
+      },
+      "Statistics": {
+        "Founded": 10,
+        "Upgrades": 17,
+        "Alliances": 0,
+        "Wars": 12,
+        "Battles": 26,
+        "Destroyed": 6,
+        "Refounded": 4,
+        "Deaths": 126,
+        "Migrations": 33,
+        "PeakSettlements": 6,
+        "PeakPopulation": 101
+      },
+      "fingerprint": "1869605FE29F5E3B"
+    },
+    {
+      "scenario": "scarcity",
+      "seed": 1,
+      "days": 3650,
+      "living": 6,
+      "nomads": 2,
+      "stages": {
+        "City": 2,
+        "Camp": 1,
+        "Village": 2,
+        "Hamlet": 1
+      },
+      "Statistics": {
+        "Founded": 14,
+        "Upgrades": 23,
+        "Alliances": 2,
+        "Wars": 18,
+        "Battles": 27,
+        "Destroyed": 8,
+        "Refounded": 4,
+        "Deaths": 185,
+        "Migrations": 58,
+        "PeakSettlements": 8,
+        "PeakPopulation": 140
+      },
+      "fingerprint": "052D9A4C4760C518"
+    },
+    {
+      "scenario": "scarcity",
+      "seed": 7,
+      "days": 3650,
+      "living": 6,
+      "nomads": 3,
+      "stages": {
+        "City": 2,
+        "Camp": 3,
+        "Hamlet": 1
+      },
+      "Statistics": {
+        "Founded": 15,
+        "Upgrades": 15,
+        "Alliances": 29,
+        "Wars": 11,
+        "Battles": 15,
+        "Destroyed": 9,
+        "Refounded": 5,
+        "Deaths": 198,
+        "Migrations": 66,
+        "PeakSettlements": 7,
+        "PeakPopulation": 120
+      },
+      "fingerprint": "B0C5114EDA284CB4"
+    },
+    {
+      "scenario": "scarcity",
+      "seed": 42,
+      "days": 3650,
+      "living": 6,
+      "nomads": 6,
+      "stages": {
+        "Town": 1,
+        "City": 1,
+        "Hamlet": 3,
+        "Camp": 1
+      },
+      "Statistics": {
+        "Founded": 12,
+        "Upgrades": 20,
+        "Alliances": 12,
+        "Wars": 7,
+        "Battles": 22,
+        "Destroyed": 6,
+        "Refounded": 4,
+        "Deaths": 202,
+        "Migrations": 48,
+        "PeakSettlements": 6,
+        "PeakPopulation": 128
+      },
+      "fingerprint": "C4F7E9C3788226EE"
+    },
+    {
+      "scenario": "scarcity",
+      "seed": 100,
+      "days": 3650,
+      "living": 7,
+      "nomads": 4,
+      "stages": {
+        "City": 3,
+        "Village": 1,
+        "Camp": 3
+      },
+      "Statistics": {
+        "Founded": 13,
+        "Upgrades": 21,
+        "Alliances": 1,
+        "Wars": 9,
+        "Battles": 14,
+        "Destroyed": 6,
+        "Refounded": 5,
+        "Deaths": 94,
+        "Migrations": 53,
+        "PeakSettlements": 7,
+        "PeakPopulation": 162
+      },
+      "fingerprint": "809B898717775A8E"
+    },
+    {
+      "scenario": "scarcity",
+      "seed": 2026,
+      "days": 3650,
+      "living": 5,
+      "nomads": 5,
+      "stages": {
+        "City": 1,
+        "Town": 1,
+        "Village": 1,
+        "Hamlet": 2
+      },
+      "Statistics": {
+        "Founded": 12,
+        "Upgrades": 18,
+        "Alliances": 0,
+        "Wars": 12,
+        "Battles": 19,
+        "Destroyed": 7,
+        "Refounded": 4,
+        "Deaths": 102,
+        "Migrations": 47,
+        "PeakSettlements": 6,
+        "PeakPopulation": 129
+      },
+      "fingerprint": "FFFC856F6E233654"
+    },
+    {
+      "scenario": "scarcity",
+      "seed": 65535,
+      "days": 3650,
+      "living": 5,
+      "nomads": 5,
+      "stages": {
+        "Town": 1,
+        "City": 1,
+        "Camp": 2,
+        "Village": 1
+      },
+      "Statistics": {
+        "Founded": 11,
+        "Upgrades": 15,
+        "Alliances": 5,
+        "Wars": 9,
+        "Battles": 15,
+        "Destroyed": 6,
+        "Refounded": 4,
+        "Deaths": 174,
+        "Migrations": 40,
+        "PeakSettlements": 6,
+        "PeakPopulation": 124
+      },
+      "fingerprint": "FB354478F0D874E6"
+    },
+    {
+      "scenario": "hostile",
+      "seed": 1,
+      "days": 3650,
+      "living": 2,
+      "nomads": 6,
+      "stages": {
+        "City": 1,
+        "Hamlet": 1
+      },
+      "Statistics": {
+        "Founded": 10,
+        "Upgrades": 11,
+        "Alliances": 0,
+        "Wars": 11,
+        "Battles": 16,
+        "Destroyed": 8,
+        "Refounded": 3,
+        "Deaths": 71,
+        "Migrations": 34,
+        "PeakSettlements": 6,
+        "PeakPopulation": 62
+      },
+      "fingerprint": "AA653113468F62FA"
+    },
+    {
+      "scenario": "hostile",
+      "seed": 7,
+      "days": 3650,
+      "living": 1,
+      "nomads": 5,
+      "stages": {
+        "Town": 1
+      },
+      "Statistics": {
+        "Founded": 10,
+        "Upgrades": 10,
+        "Alliances": 0,
+        "Wars": 10,
+        "Battles": 15,
+        "Destroyed": 9,
+        "Refounded": 3,
+        "Deaths": 73,
+        "Migrations": 33,
+        "PeakSettlements": 6,
+        "PeakPopulation": 64
+      },
+      "fingerprint": "FB34330DC4F5A114"
+    },
+    {
+      "scenario": "hostile",
+      "seed": 42,
+      "days": 3650,
+      "living": 2,
+      "nomads": 1,
+      "stages": {
+        "Town": 1,
+        "Hamlet": 1
+      },
+      "Statistics": {
+        "Founded": 11,
+        "Upgrades": 13,
+        "Alliances": 0,
+        "Wars": 10,
+        "Battles": 19,
+        "Destroyed": 9,
+        "Refounded": 4,
+        "Deaths": 102,
+        "Migrations": 36,
+        "PeakSettlements": 6,
+        "PeakPopulation": 66
+      },
+      "fingerprint": "3AF8685C4E7AD7D4"
+    },
+    {
+      "scenario": "hostile",
+      "seed": 100,
+      "days": 3650,
+      "living": 2,
+      "nomads": 2,
+      "stages": {
+        "Town": 1,
+        "Hamlet": 1
+      },
+      "Statistics": {
+        "Founded": 11,
+        "Upgrades": 12,
+        "Alliances": 0,
+        "Wars": 12,
+        "Battles": 15,
+        "Destroyed": 9,
+        "Refounded": 3,
+        "Deaths": 81,
+        "Migrations": 37,
+        "PeakSettlements": 5,
+        "PeakPopulation": 52
+      },
+      "fingerprint": "C4B7DED233DC8A4A"
+    },
+    {
+      "scenario": "hostile",
+      "seed": 2026,
+      "days": 3650,
+      "living": 3,
+      "nomads": 1,
+      "stages": {
+        "City": 1,
+        "Hamlet": 1,
+        "Camp": 1
+      },
+      "Statistics": {
+        "Founded": 13,
+        "Upgrades": 13,
+        "Alliances": 0,
+        "Wars": 12,
+        "Battles": 15,
+        "Destroyed": 10,
+        "Refounded": 5,
+        "Deaths": 92,
+        "Migrations": 50,
+        "PeakSettlements": 6,
+        "PeakPopulation": 62
+      },
+      "fingerprint": "110D9CD3035DD957"
+    },
+    {
+      "scenario": "hostile",
+      "seed": 65535,
+      "days": 3650,
+      "living": 2,
+      "nomads": 6,
+      "stages": {
+        "City": 1,
+        "Hamlet": 1
+      },
+      "Statistics": {
+        "Founded": 12,
+        "Upgrades": 12,
+        "Alliances": 0,
+        "Wars": 13,
+        "Battles": 17,
+        "Destroyed": 10,
+        "Refounded": 5,
+        "Deaths": 84,
+        "Migrations": 48,
+        "PeakSettlements": 6,
+        "PeakPopulation": 58
+      },
+      "fingerprint": "9A4E65A44ED3104F"
+    }
+  ]
+}

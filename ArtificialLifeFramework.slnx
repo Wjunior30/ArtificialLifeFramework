@@ -10,6 +10,7 @@
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/ArtificialLife.Tests/ArtificialLife.Tests.csproj" />
+    <Project Path="tests/ArtificialLife.SettlementBacktest/ArtificialLife.SettlementBacktest.csproj" />
     <Project Path="tests/SimulationLife.Core.Tests/SimulationLife.Core.Tests.csproj" />
   </Folder>
 </Solution>
