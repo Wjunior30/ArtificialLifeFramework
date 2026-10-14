@@ -13,7 +13,7 @@ Implementação local do plano de evolução do framework, incluindo os achados 
 | Modularidade | Território, população/construção, migração, diplomacia, conflitos e auditoria separados |
 | Extensibilidade | Interfaces para território, progressão, conflitos e efeitos diários de regras do jogo |
 | Configuração | Regras imutáveis validadas; migração, demografia, recursos e diplomacia configuráveis |
-| Persistência | Mundo, host portátil, assentamentos e transporte; codecs de extensões; migração regional do esquema 1 para 2 |
+| Persistência | Mundo, host portátil, assentamentos e transporte; codecs de extensões; migração regional dos esquemas 1 e 2 para 3 |
 | Eventos para engines | Eventos tipados com leitura por cursor, sem mudar o estado da simulação |
 | Testes | xUnit, regressões antigas preservadas, saves antigos de referência e backtest separado |
 | Escala | Cenários para 100 assentamentos, 10 mil agentes individuais, 100 mil agregados e mil anos |
@@ -83,6 +83,93 @@ O nucleo tambem oferece:
 - categorias de teste (`Hosting`, `Persistence`, `Diagnostics` e `Diplomacy`) e contrato publico revisado em `docs/PublicApi.txt`.
 
 Esses servicos sao dependency-free: podem ser registrados em qualquer container de injecao de dependencia por factories, sem obrigar o consumidor a instalar um container especifico. Unity e Godot usam a sessao comum em `samples/ArtificialLife.EngineAdapters`; a compilacao e os testes automatizados validam essa fronteira. A execucao dentro dos editores continua sendo uma validacao externa, pois os SDKs dos editores nao fazem parte deste repositorio.
+
+## Roadmap — mundo realmente vivo
+
+O framework já sustenta um mundo emergente: assentamentos nascem, crescem, negociam, entram em guerra, são destruídos e podem ser reconstruídos sem roteiro fixo. As atividades abaixo representam as próximas camadas necessárias para que pessoas, organizações e cidades também transmitam identidade, memória e intenção ao jogador.
+
+### Prioridade 1 — vida individual e continuidade
+
+- [ ] Implementar idade, nascimento, infância, vida adulta, velhice e morte natural.
+- [ ] Implementar famílias, parentesco, casamento, separação, herança e descendência.
+- [ ] Implementar profissões, habilidades, experiência, local de trabalho e mudança de ocupação.
+- [ ] Implementar objetivos pessoais de curto e longo prazo, com prioridades concorrentes.
+- [ ] Fazer necessidades, personalidade, emoções, relações e memórias influenciarem decisões reais.
+- [ ] Preservar identidade e estado ao converter uma população agregada em agentes individuais e novamente em agregado.
+
+### Prioridade 2 — sociedade e organizações
+
+- [ ] Implementar grupos, guildas, empresas, exércitos, partidos, famílias influentes e organizações religiosas.
+- [ ] Implementar entrada, saída, cargos, hierarquia, patrimônio, objetivos e conflitos internos das organizações.
+- [ ] Implementar governos, líderes, eleições, sucessão, golpes e disputas pelo poder.
+- [ ] Implementar leis, impostos, propriedade, crimes, punições, guardas, prisões e reputação pública.
+- [ ] Implementar facções, revoltas, protestos, guerras civis e independência de territórios.
+
+### Prioridade 3 — economia viva
+
+- [ ] Implementar empregos, salários, contratos, empresas e produção baseada em trabalhadores e ferramentas.
+- [ ] Implementar preços formados por oferta, procura, estoque, distância, risco e impostos.
+- [ ] Implementar mercados locais, comércio entre cidades, caravanas, bloqueios e rotas comerciais.
+- [ ] Implementar propriedade de casas, terras, oficinas, fazendas e recursos naturais.
+- [ ] Implementar pobreza, riqueza, dívida, falência, desigualdade e mobilidade econômica.
+- [ ] Garantir conservação auditável de população, dinheiro, mercadorias e propriedade.
+
+### Prioridade 4 — cultura, conhecimento e história
+
+- [ ] Implementar culturas, idiomas, religiões, costumes, valores e identidades regionais.
+- [ ] Implementar transmissão cultural entre gerações e influência entre cidades vizinhas.
+- [ ] Implementar conhecimento, pesquisa, invenções, educação e evolução tecnológica.
+- [ ] Fazer eventos históricos criarem memórias coletivas, feriados, rivalidades e alianças duradouras.
+- [ ] Gerar nomes, biografias e crônicas determinísticas para pessoas, famílias, cidades e organizações.
+
+### Prioridade 5 — política, diplomacia e guerra
+
+- [ ] Implementar território contínuo, fronteiras, reivindicações e ocupação de áreas do mapa.
+- [ ] Implementar tratados, pactos defensivos, comércio, tributos, vassalagem, sanções e garantias.
+- [ ] Transformar objetivos de guerra em condições concretas de vitória, negociação e paz.
+- [ ] Implementar exércitos, recrutamento, logística, moral, comandantes, cercos e controle territorial.
+- [ ] Fazer diplomacia considerar história, cultura, economia, ameaças, personalidade dos líderes e opinião pública.
+
+### Prioridade 6 — ambiente e crises
+
+- [ ] Implementar estações, clima, secas, enchentes, incêndios e desastres naturais.
+- [ ] Implementar doenças, contágio, imunidade, tratamento e impacto demográfico.
+- [ ] Implementar recursos renováveis e esgotáveis, degradação ambiental e recuperação.
+- [ ] Permitir migração externa e repovoamento configuráveis após colapsos regionais.
+- [ ] Fazer cidades planejarem reservas e reagirem antecipadamente a riscos conhecidos.
+
+### Prioridade 7 — percepção pelo jogador e engines
+
+- [ ] Criar consultas explicáveis: “por que este agente decidiu isso?” e “por que esta cidade entrou em guerra?”.
+- [ ] Criar linha do tempo pesquisável para pessoas, famílias, organizações e cidades.
+- [ ] Criar níveis de detalhe para simular de forma agregada o que está longe e individualmente o que está próximo.
+- [ ] Validar os adaptadores dentro de projetos reais Unity e Godot, incluindo save/load e execução prolongada.
+- [ ] Criar exemplos separados para cidade, família, economia, política, guerra, doença e desastre.
+
+### Requisitos obrigatórios para cada atividade
+
+Uma atividade só pode ser marcada como concluída quando:
+
+1. possuir contrato público extensível sem exigir alteração do núcleo pelo jogo consumidor;
+2. preservar determinismo para a mesma semente, configuração e sequência de comandos;
+3. possuir persistência versionada e migração dos saves anteriores quando necessário;
+4. incluir eventos tipados e explicação das decisões relevantes;
+5. possuir testes unitários, integração, replay e restauração de snapshots;
+6. entrar no backtest com cenários normais, extremos e de longa duração;
+7. manter população, dinheiro, bens e demais recursos auditáveis;
+8. ter documentação e exemplo de uso independente de engine;
+9. respeitar o orçamento de desempenho para agentes individuais e populações agregadas;
+10. atualizar `docs/PublicApi.txt`, compatibilidade e changelog.
+
+### Ordem recomendada
+
+1. Ciclo de vida, famílias e profissões.
+2. Organizações e governos.
+3. Economia dinâmica e propriedade.
+4. Cultura, conhecimento e memória histórica.
+5. Territórios, diplomacia avançada e guerra.
+6. Ambiente, doenças e crises.
+7. Integração visual e validação em Unity/Godot.
 
 ## Compilar e validar
 
