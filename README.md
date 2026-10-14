@@ -68,6 +68,22 @@ Saves regionais usam esquema 2 e migram o esquema 1. Fingerprints regionais usam
 
 Compras validam contas, saldo, imposto e capacidade antes da transferência. Impostos de venda aceitam 0–10.000 pontos-base; transações gratuitas e imposto de 100% são suportados. Ajuda concluída não pode ser entregue novamente. Tempos e multiplicadores precisam ser finitos. `PortableSimulation.Advance` aceita até 100 mil passos por chamada; entradas recusadas não alteram o acumulador. Coleções regionais são somente para leitura.
 
+## Capacidades de framework
+
+A fachada `ArtificialLife.CreateWorld` / `CreateSettlements` cobre a inicializacao comum sem esconder os construtores avancados. `SettlementConfiguration` permite configurar regras, opcoes e politicas em um unico ponto.
+
+O nucleo tambem oferece:
+
+- `SimulationScheduler`, com ordem deterministica e frequencias independentes;
+- `DiagnosticBuffer` e `SimulationTelemetry`, opcionais e fora do estado deterministico;
+- `ExplainRelationship` e `GetWarPlan`, para interfaces explicarem diplomacia e objetivos de guerra;
+- `PopulationMaterialization`, para expandir coortes em agentes individuais e agrega-los novamente conservando populacao e bens;
+- `SettlementSnapshots`, para checkpoints incrementais por replay deterministico;
+- `SnapshotAuthentication`, para HMAC-SHA256 opcional com chave mantida pelo jogo;
+- categorias de teste (`Hosting`, `Persistence`, `Diagnostics` e `Diplomacy`) e contrato publico revisado em `docs/PublicApi.txt`.
+
+Esses servicos sao dependency-free: podem ser registrados em qualquer container de injecao de dependencia por factories, sem obrigar o consumidor a instalar um container especifico. Unity e Godot usam a sessao comum em `samples/ArtificialLife.EngineAdapters`; a compilacao e os testes automatizados validam essa fronteira. A execucao dentro dos editores continua sendo uma validacao externa, pois os SDKs dos editores nao fazem parte deste repositorio.
+
 ## Compilar e validar
 
 ```powershell

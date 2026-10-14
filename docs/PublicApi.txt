@@ -54,6 +54,24 @@ TYPE ArtificialLife.Core.AllianceFormed : ArtificialLife.Core.SettlementEvent [S
   Method: System.String ToString()
   Constructor: Void .ctor(Int32, Int32, Int32)
   Method: Void Deconstruct(Int32 ByRef, Int32 ByRef, Int32 ByRef)
+TYPE ArtificialLife.Core.ArtificialLife : System.Object []
+  Method: ArtificialLife.Core.LifeWorld CreateWorld(UInt64)
+  Method: ArtificialLife.Core.SettlementSimulation CreateSettlements(UInt64, System.Action`1[ArtificialLife.Core.SettlementConfiguration])
+TYPE ArtificialLife.Core.ArtificialLifeServiceCatalog : System.Object []
+  Method: ArtificialLife.Core.ArtificialLifeServiceCatalog AddSingleton[T](T)
+  Method: ArtificialLife.Core.ArtificialLifeServiceCatalog AddTransient[T](System.Func`1[T])
+  Method: T GetRequired[T]()
+  Constructor: Void .ctor()
+TYPE ArtificialLife.Core.AuthenticatedSimulationSave : System.Object [System.IEquatable<ArtificialLife.Core.AuthenticatedSimulationSave>]
+  Method: ArtificialLife.Core.AuthenticatedSimulationSave <Clone>$()
+  Property: ArtificialLife.Core.SimulationSave Save { get; set;  }
+  Method: Boolean Equals(ArtificialLife.Core.AuthenticatedSimulationSave)
+  Method: Boolean Equals(System.Object)
+  Method: Int32 GetHashCode()
+  Property: System.String AuthenticationCode { get; set;  }
+  Method: System.String ToString()
+  Constructor: Void .ctor(ArtificialLife.Core.SimulationSave, System.String)
+  Method: Void Deconstruct(ArtificialLife.Core.SimulationSave ByRef, System.String ByRef)
 TYPE ArtificialLife.Core.AutonomousDecisionSystem : System.Object []
   Method: ArtificialLife.Core.ActionEvaluation Choose(System.Collections.Generic.IEnumerable`1[ArtificialLife.Core.ActionEvaluation], ArtificialLife.Core.CommitmentState, Int64)
   Method: ArtificialLife.Core.ActionEvaluation Evaluate(ArtificialLife.Core.Agent, ArtificialLife.Core.PersonProfile, System.String, System.Collections.Generic.IReadOnlyDictionary`2[System.String,System.Double], Double, Double)
@@ -204,10 +222,43 @@ TYPE ArtificialLife.Core.DeterministicRandom : System.ValueType []
   Method: Int32 Next(Int32)
   Method: UInt64 NextUInt64()
   Constructor: Void .ctor(UInt64)
+TYPE ArtificialLife.Core.DiagnosticBuffer : System.Object [ArtificialLife.Core.ISimulationDiagnostics]
+  Property: System.Int32 Capacity { get;  }
+  Property: System.Collections.Generic.IReadOnlyList<ArtificialLife.Core.SimulationDiagnostic> Items { get;  }
+  Constructor: Void .ctor(Int32)
+  Method: Void Report(ArtificialLife.Core.SimulationDiagnostic)
+TYPE ArtificialLife.Core.DiagnosticSeverity : System.Enum [System.IComparable,System.IConvertible,System.IFormattable,System.ISpanFormattable]
+  Field: ArtificialLife.Core.DiagnosticSeverity Error = 3
+  Field: ArtificialLife.Core.DiagnosticSeverity Information = 1
+  Field: ArtificialLife.Core.DiagnosticSeverity Trace = 0
+  Field: ArtificialLife.Core.DiagnosticSeverity Warning = 2
+  Field: Int32 value__
 TYPE ArtificialLife.Core.DiplomacyMode : System.Enum [System.IComparable,System.IConvertible,System.IFormattable,System.ISpanFormattable]
   Field: ArtificialLife.Core.DiplomacyMode Legacy = 0
   Field: ArtificialLife.Core.DiplomacyMode Negotiated = 1
   Field: Int32 value__
+TYPE ArtificialLife.Core.DiplomaticExplanation : System.Object [System.IEquatable<ArtificialLife.Core.DiplomaticExplanation>]
+  Method: ArtificialLife.Core.DiplomaticExplanation <Clone>$()
+  Method: Boolean Equals(ArtificialLife.Core.DiplomaticExplanation)
+  Method: Boolean Equals(System.Object)
+  Property: System.Double Relation { get; set;  }
+  Property: System.Int32 First { get; set;  }
+  Method: Int32 GetHashCode()
+  Property: System.Int32 Second { get; set;  }
+  Property: System.Collections.Generic.IReadOnlyList<ArtificialLife.Core.DiplomaticFactor> Factors { get; set;  }
+  Method: System.String ToString()
+  Constructor: Void .ctor(Int32, Int32, Double, System.Collections.Generic.IReadOnlyList`1[ArtificialLife.Core.DiplomaticFactor])
+  Method: Void Deconstruct(Int32 ByRef, Int32 ByRef, Double ByRef, System.Collections.Generic.IReadOnlyList`1[ArtificialLife.Core.DiplomaticFactor] ByRef)
+TYPE ArtificialLife.Core.DiplomaticFactor : System.Object [System.IEquatable<ArtificialLife.Core.DiplomaticFactor>]
+  Method: ArtificialLife.Core.DiplomaticFactor <Clone>$()
+  Method: Boolean Equals(ArtificialLife.Core.DiplomaticFactor)
+  Method: Boolean Equals(System.Object)
+  Property: System.Double Value { get; set;  }
+  Method: Int32 GetHashCode()
+  Property: System.String Name { get; set;  }
+  Method: System.String ToString()
+  Constructor: Void .ctor(System.String, Double)
+  Method: Void Deconstruct(System.String ByRef, Double ByRef)
 TYPE ArtificialLife.Core.DistributionModel : System.Enum [System.IComparable,System.IConvertible,System.IFormattable,System.ISpanFormattable]
   Field: ArtificialLife.Core.DistributionModel Market = 0
   Field: ArtificialLife.Core.DistributionModel Need = 1
@@ -360,8 +411,12 @@ TYPE ArtificialLife.Core.ISettlementSiteEvaluator :  [ArtificialLife.Core.ISettl
   Method: Double Evaluate(ArtificialLife.Core.SettlementSite, ArtificialLife.Core.SettlementContext)
 TYPE ArtificialLife.Core.ISimulationCommand :  []
   Method: Void Apply(ArtificialLife.Core.PortableSimulation)
+TYPE ArtificialLife.Core.ISimulationDiagnostics :  []
+  Method: Void Report(ArtificialLife.Core.SimulationDiagnostic)
 TYPE ArtificialLife.Core.ISimulationObserver :  []
   Method: Void OnStepCompleted(ArtificialLife.Core.SimulationSnapshot)
+TYPE ArtificialLife.Core.ISimulationTelemetryObserver :  []
+  Method: Void Observe(ArtificialLife.Core.SimulationObservation)
 TYPE ArtificialLife.Core.IUtilityAction :  []
   Method: ArtificialLife.Core.ActionStatus Tick(ArtificialLife.Core.DecisionContext, Double)
   Method: Boolean CanStart(ArtificialLife.Core.DecisionContext)
@@ -381,6 +436,17 @@ TYPE ArtificialLife.Core.IdleAction : System.Object [ArtificialLife.Core.IUtilit
   Constructor: Void .ctor()
   Method: Void Cancel(ArtificialLife.Core.DecisionContext)
   Method: Void Start(ArtificialLife.Core.DecisionContext)
+TYPE ArtificialLife.Core.IncrementalSettlementSnapshot : System.Object [System.IEquatable<ArtificialLife.Core.IncrementalSettlementSnapshot>]
+  Method: ArtificialLife.Core.IncrementalSettlementSnapshot <Clone>$()
+  Property: ArtificialLife.Core.SimulationSave Base { get; set;  }
+  Method: Boolean Equals(ArtificialLife.Core.IncrementalSettlementSnapshot)
+  Method: Boolean Equals(System.Object)
+  Property: System.Int32 Days { get; set;  }
+  Method: Int32 GetHashCode()
+  Property: System.String ResultHash { get; set;  }
+  Method: System.String ToString()
+  Constructor: Void .ctor(ArtificialLife.Core.SimulationSave, Int32, System.String)
+  Method: Void Deconstruct(ArtificialLife.Core.SimulationSave ByRef, Int32 ByRef, System.String ByRef)
 TYPE ArtificialLife.Core.InheritanceModel : System.Enum [System.IComparable,System.IConvertible,System.IFormattable,System.ISpanFormattable]
   Field: ArtificialLife.Core.InheritanceModel Community = 1
   Field: ArtificialLife.Core.InheritanceModel Private = 0
@@ -432,6 +498,7 @@ TYPE ArtificialLife.Core.LifeWorld : System.Object []
   Property: ArtificialLife.Core.IdSequence Ids { get;  }
   Method: ArtificialLife.Core.LifeWorld Restore(ArtificialLife.Core.SimulationSave, ArtificialLife.Core.RestoreHandlers)
   Method: ArtificialLife.Core.SimulationSave CaptureState()
+  Method: Boolean TryRemoveAgent(ArtificialLife.Core.EntityId, ArtificialLife.Core.Agent ByRef)
   Property: System.Int32 EventCapacity { get; set;  }
   Property: System.Int64 DroppedEvents { get;  }
   Property: System.Int64 Tick { get;  }
@@ -447,6 +514,16 @@ TYPE ArtificialLife.Core.LifeWorld : System.Object []
 TYPE ArtificialLife.Core.Market : System.Object []
   Constructor: Void .ctor(ArtificialLife.Core.Economy, ArtificialLife.Core.EconomicPolicy, System.Nullable`1[ArtificialLife.Core.EntityId])
   Method: Void Trade(Int64, ArtificialLife.Core.Agent, ArtificialLife.Core.Agent, System.String, Int64, ArtificialLife.Core.Money)
+TYPE ArtificialLife.Core.MaterializedPopulation : System.Object [System.IEquatable<ArtificialLife.Core.MaterializedPopulation>]
+  Method: ArtificialLife.Core.MaterializedPopulation <Clone>$()
+  Property: ArtificialLife.Core.PopulationCohort Source { get; set;  }
+  Method: Boolean Equals(ArtificialLife.Core.MaterializedPopulation)
+  Method: Boolean Equals(System.Object)
+  Method: Int32 GetHashCode()
+  Property: System.Collections.Generic.IReadOnlyList<ArtificialLife.Core.EntityId> Agents { get; set;  }
+  Method: System.String ToString()
+  Constructor: Void .ctor(ArtificialLife.Core.PopulationCohort, System.Collections.Generic.IReadOnlyList`1[ArtificialLife.Core.EntityId])
+  Method: Void Deconstruct(ArtificialLife.Core.PopulationCohort ByRef, System.Collections.Generic.IReadOnlyList`1[ArtificialLife.Core.EntityId] ByRef)
 TYPE ArtificialLife.Core.Memory : System.Object []
   Property: System.Double Importance { get;  }
   Property: System.Int64 Tick { get;  }
@@ -534,6 +611,20 @@ TYPE ArtificialLife.Core.PersonProfile : System.Object []
   Method: Void RemoveExpiredGoals(Int64)
   Method: Void SetSkill(ArtificialLife.Core.Skill, Double)
   Method: Void SetTrait(System.String, Double)
+TYPE ArtificialLife.Core.PopulationCohort : System.Object [System.IEquatable<ArtificialLife.Core.PopulationCohort>]
+  Method: ArtificialLife.Core.PopulationCohort <Clone>$()
+  Method: Boolean Equals(ArtificialLife.Core.PopulationCohort)
+  Method: Boolean Equals(System.Object)
+  Method: Int32 GetHashCode()
+  Property: System.Int32 Population { get; set;  }
+  Property: System.Collections.Generic.IReadOnlyDictionary<System.String,System.Int64> Goods { get; set;  }
+  Property: System.String Id { get; set;  }
+  Method: System.String ToString()
+  Constructor: Void .ctor(System.String, Int32, System.Collections.Generic.IReadOnlyDictionary`2[System.String,System.Int64])
+  Method: Void Deconstruct(System.String ByRef, Int32 ByRef, System.Collections.Generic.IReadOnlyDictionary`2[System.String,System.Int64] ByRef)
+TYPE ArtificialLife.Core.PopulationMaterialization : System.Object []
+  Method: ArtificialLife.Core.MaterializedPopulation Expand(ArtificialLife.Core.PopulationCohort, ArtificialLife.Core.LifeWorld, Int32)
+  Method: ArtificialLife.Core.PopulationCohort Collapse(ArtificialLife.Core.MaterializedPopulation, ArtificialLife.Core.LifeWorld)
 TYPE ArtificialLife.Core.PopulationMigrated : ArtificialLife.Core.SettlementEvent [System.IEquatable<ArtificialLife.Core.PopulationMigrated>,System.IEquatable<ArtificialLife.Core.SettlementEvent>]
   Method: ArtificialLife.Core.SettlementEvent <Clone>$()
   Method: Boolean Equals(ArtificialLife.Core.PopulationMigrated)
@@ -631,6 +722,18 @@ TYPE ArtificialLife.Core.SatisfyNeedAction : System.Object [ArtificialLife.Core.
   Constructor: Void .ctor(System.String, System.String, Double)
   Method: Void Cancel(ArtificialLife.Core.DecisionContext)
   Method: Void Start(ArtificialLife.Core.DecisionContext)
+TYPE ArtificialLife.Core.ScheduledSystem : System.Object [System.IEquatable<ArtificialLife.Core.ScheduledSystem>]
+  Method: ArtificialLife.Core.ScheduledSystem <Clone>$()
+  Method: Boolean Equals(ArtificialLife.Core.ScheduledSystem)
+  Method: Boolean Equals(System.Object)
+  Property: System.Int32 EveryDays { get; set;  }
+  Method: Int32 GetHashCode()
+  Property: System.Int32 Order { get; set;  }
+  Property: System.Action<System.Int32> Execute { get; set;  }
+  Property: System.String Id { get; set;  }
+  Method: System.String ToString()
+  Constructor: Void .ctor(System.String, Int32, Int32, System.Action`1[System.Int32])
+  Method: Void Deconstruct(System.String ByRef, Int32 ByRef, Int32 ByRef, System.Action`1[System.Int32] ByRef)
 TYPE ArtificialLife.Core.Settlement : System.Object []
   Property: ArtificialLife.Core.Inventory Stock { get;  }
   Property: ArtificialLife.Core.Vec2 Position { get;  }
@@ -638,6 +741,12 @@ TYPE ArtificialLife.Core.Settlement : System.Object []
   Property: System.Int32 Guards { get; set;  }
   Property: System.String Id { get;  }
   Constructor: Void .ctor(System.String, ArtificialLife.Core.Vec2)
+TYPE ArtificialLife.Core.SettlementConfiguration : System.Object []
+  Property: ArtificialLife.Core.SettlementPolicies Policies { get; set;  }
+  Property: ArtificialLife.Core.SettlementRules Rules { get; set;  }
+  Method: ArtificialLife.Core.SettlementSimulation Build(UInt64)
+  Property: ArtificialLife.Core.SettlementSimulationOptions Options { get; set;  }
+  Constructor: Void .ctor()
 TYPE ArtificialLife.Core.SettlementContext : System.Object [System.IEquatable<ArtificialLife.Core.SettlementContext>]
   Method: ArtificialLife.Core.SettlementContext <Clone>$()
   Property: ArtificialLife.Core.SettlementRules Rules { get; set;  }
@@ -775,11 +884,13 @@ TYPE ArtificialLife.Core.SettlementRules : System.Object [System.IEquatable<Arti
   Constructor: Void .ctor()
   Method: Void Validate()
 TYPE ArtificialLife.Core.SettlementSimulation : System.Object []
+  Method: ArtificialLife.Core.DiplomaticExplanation ExplainRelationship(Int32, Int32)
   Method: ArtificialLife.Core.SettlementEventBatch ReadEvents(Int32)
   Property: ArtificialLife.Core.SettlementRules Rules { get;  }
   Method: ArtificialLife.Core.SettlementSimulation Restore(ArtificialLife.Core.SimulationSave, ArtificialLife.Core.RestoreHandlers)
   Property: ArtificialLife.Core.SettlementStatistics Statistics { get;  }
   Method: ArtificialLife.Core.SimulationSave CaptureState()
+  Method: ArtificialLife.Core.WarPlan GetWarPlan(Int32, Int32)
   Property: System.Int32 Day { get;  }
   Field: Int32 FingerprintVersion = 3
   Property: System.Int32 Nomads { get;  }
@@ -823,6 +934,9 @@ TYPE ArtificialLife.Core.SettlementSite : System.Object [System.IEquatable<Artif
   Method: System.String ToString()
   Constructor: Void .ctor(Int32, ArtificialLife.Core.Vec2, Double, Double, Double, Double)
   Method: Void Deconstruct(Int32 ByRef, ArtificialLife.Core.Vec2 ByRef, Double ByRef, Double ByRef, Double ByRef, Double ByRef)
+TYPE ArtificialLife.Core.SettlementSnapshots : System.Object []
+  Method: ArtificialLife.Core.IncrementalSettlementSnapshot CaptureIncrement(ArtificialLife.Core.SettlementSimulation, Int32)
+  Method: ArtificialLife.Core.SettlementSimulation RestoreIncrement(ArtificialLife.Core.IncrementalSettlementSnapshot)
 TYPE ArtificialLife.Core.SettlementStage : System.Enum [System.IComparable,System.IConvertible,System.IFormattable,System.ISpanFormattable]
   Field: ArtificialLife.Core.SettlementStage Camp = 0
   Field: ArtificialLife.Core.SettlementStage City = 4
@@ -888,6 +1002,40 @@ TYPE ArtificialLife.Core.SettlementUpgraded : ArtificialLife.Core.SettlementEven
   Method: System.String ToString()
   Constructor: Void .ctor(Int32, Int32, System.Nullable`1[ArtificialLife.Core.SettlementStage])
   Method: Void Deconstruct(Int32 ByRef, Int32 ByRef, System.Nullable`1[ArtificialLife.Core.SettlementStage] ByRef)
+TYPE ArtificialLife.Core.SimulationDiagnostic : System.Object [System.IEquatable<ArtificialLife.Core.SimulationDiagnostic>]
+  Property: ArtificialLife.Core.DiagnosticSeverity Severity { get; set;  }
+  Method: ArtificialLife.Core.SimulationDiagnostic <Clone>$()
+  Method: Boolean Equals(ArtificialLife.Core.SimulationDiagnostic)
+  Method: Boolean Equals(System.Object)
+  Property: System.Int32 Day { get; set;  }
+  Method: Int32 GetHashCode()
+  Property: System.String Code { get; set;  }
+  Property: System.String Message { get; set;  }
+  Method: System.String ToString()
+  Constructor: Void .ctor(Int32, System.String, ArtificialLife.Core.DiagnosticSeverity, System.String)
+  Method: Void Deconstruct(Int32 ByRef, System.String ByRef, ArtificialLife.Core.DiagnosticSeverity ByRef, System.String ByRef)
+TYPE ArtificialLife.Core.SimulationMetric : System.Object [System.IEquatable<ArtificialLife.Core.SimulationMetric>]
+  Method: ArtificialLife.Core.SimulationMetric <Clone>$()
+  Method: Boolean Equals(ArtificialLife.Core.SimulationMetric)
+  Method: Boolean Equals(System.Object)
+  Property: System.Double Value { get; set;  }
+  Method: Int32 GetHashCode()
+  Property: System.String Name { get; set;  }
+  Method: System.String ToString()
+  Property: System.String Unit { get; set;  }
+  Constructor: Void .ctor(System.String, Double, System.String)
+  Method: Void Deconstruct(System.String ByRef, Double ByRef, System.String ByRef)
+TYPE ArtificialLife.Core.SimulationObservation : System.Object [System.IEquatable<ArtificialLife.Core.SimulationObservation>]
+  Method: ArtificialLife.Core.SimulationObservation <Clone>$()
+  Method: Boolean Equals(ArtificialLife.Core.SimulationObservation)
+  Method: Boolean Equals(System.Object)
+  Method: Int32 GetHashCode()
+  Property: System.Collections.Generic.IReadOnlyList<ArtificialLife.Core.SimulationMetric> Metrics { get; set;  }
+  Property: System.String Operation { get; set;  }
+  Method: System.String ToString()
+  Property: System.TimeSpan Elapsed { get; set;  }
+  Constructor: Void .ctor(System.String, System.TimeSpan, System.Collections.Generic.IReadOnlyList`1[ArtificialLife.Core.SimulationMetric])
+  Method: Void Deconstruct(System.String ByRef, System.TimeSpan ByRef, System.Collections.Generic.IReadOnlyList`1[ArtificialLife.Core.SimulationMetric] ByRef)
 TYPE ArtificialLife.Core.SimulationPresenter : System.Object [ArtificialLife.Core.ISimulationObserver]
   Constructor: Void .ctor(ArtificialLife.Core.IArtificialLifeAdapter)
   Method: Void OnStepCompleted(ArtificialLife.Core.SimulationSnapshot)
@@ -897,6 +1045,12 @@ TYPE ArtificialLife.Core.SimulationSave : System.Object []
   Property: System.String Checksum { get; set;  }
   Property: System.String Kind { get; set;  }
   Constructor: Void .ctor()
+TYPE ArtificialLife.Core.SimulationScheduler : System.Object []
+  Method: Boolean Remove(System.String)
+  Property: System.Collections.Generic.IReadOnlyList<ArtificialLife.Core.ScheduledSystem> Systems { get;  }
+  Constructor: Void .ctor()
+  Method: Void Add(ArtificialLife.Core.ScheduledSystem)
+  Method: Void Run(Int32)
 TYPE ArtificialLife.Core.SimulationSnapshot : System.Object [System.IEquatable<ArtificialLife.Core.SimulationSnapshot>]
   Method: ArtificialLife.Core.SimulationSnapshot <Clone>$()
   Method: Boolean Equals(ArtificialLife.Core.SimulationSnapshot)
@@ -909,6 +1063,8 @@ TYPE ArtificialLife.Core.SimulationSnapshot : System.Object [System.IEquatable<A
   Property: System.UInt64 Fingerprint { get; set;  }
   Constructor: Void .ctor(Int64, UInt64, System.Collections.Generic.IReadOnlyList`1[ArtificialLife.Core.AgentSnapshot], System.Collections.Generic.IReadOnlyList`1[ArtificialLife.Core.LifeEvent])
   Method: Void Deconstruct(Int64 ByRef, UInt64 ByRef, System.Collections.Generic.IReadOnlyList`1[ArtificialLife.Core.AgentSnapshot] ByRef, System.Collections.Generic.IReadOnlyList`1[ArtificialLife.Core.LifeEvent] ByRef)
+TYPE ArtificialLife.Core.SimulationTelemetry : System.Object []
+  Method: Void Measure(System.String, System.Action, ArtificialLife.Core.ISimulationTelemetryObserver, ArtificialLife.Core.SimulationMetric[])
 TYPE ArtificialLife.Core.Skill : System.Enum [System.IComparable,System.IConvertible,System.IFormattable,System.ISpanFormattable]
   Field: ArtificialLife.Core.Skill Construction = 3
   Field: ArtificialLife.Core.Skill Cooking = 1
@@ -922,6 +1078,9 @@ TYPE ArtificialLife.Core.Skill : System.Enum [System.IComparable,System.IConvert
   Field: ArtificialLife.Core.Skill Teaching = 8
   Field: ArtificialLife.Core.Skill Trade = 4
   Field: Int32 value__
+TYPE ArtificialLife.Core.SnapshotAuthentication : System.Object []
+  Method: ArtificialLife.Core.AuthenticatedSimulationSave Sign(ArtificialLife.Core.SimulationSave, Byte[])
+  Method: ArtificialLife.Core.SimulationSave Verify(ArtificialLife.Core.AuthenticatedSimulationSave, Byte[])
 TYPE ArtificialLife.Core.SocialEconomicPolicy : System.Object []
   Property: ArtificialLife.Core.DistributionModel Distribution { get; set;  }
   Property: ArtificialLife.Core.InheritanceModel Inheritance { get; set;  }
@@ -998,3 +1157,21 @@ TYPE ArtificialLife.Core.WarDeclared : ArtificialLife.Core.SettlementEvent [Syst
   Method: System.String ToString()
   Constructor: Void .ctor(Int32, Int32, Int32)
   Method: Void Deconstruct(Int32 ByRef, Int32 ByRef, Int32 ByRef)
+TYPE ArtificialLife.Core.WarGoal : System.Enum [System.IComparable,System.IConvertible,System.IFormattable,System.ISpanFormattable]
+  Field: ArtificialLife.Core.WarGoal Domination = 3
+  Field: ArtificialLife.Core.WarGoal Resources = 2
+  Field: ArtificialLife.Core.WarGoal Survival = 0
+  Field: ArtificialLife.Core.WarGoal Territory = 1
+  Field: Int32 value__
+TYPE ArtificialLife.Core.WarPlan : System.Object [System.IEquatable<ArtificialLife.Core.WarPlan>]
+  Property: ArtificialLife.Core.WarGoal Goal { get; set;  }
+  Method: ArtificialLife.Core.WarPlan <Clone>$()
+  Method: Boolean Equals(ArtificialLife.Core.WarPlan)
+  Method: Boolean Equals(System.Object)
+  Property: System.Int32 First { get; set;  }
+  Method: Int32 GetHashCode()
+  Property: System.Int32 Second { get; set;  }
+  Property: System.Int32 StartedDay { get; set;  }
+  Method: System.String ToString()
+  Constructor: Void .ctor(Int32, Int32, ArtificialLife.Core.WarGoal, Int32)
+  Method: Void Deconstruct(Int32 ByRef, Int32 ByRef, ArtificialLife.Core.WarGoal ByRef, Int32 ByRef)
