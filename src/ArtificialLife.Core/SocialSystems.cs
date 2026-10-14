@@ -35,7 +35,7 @@ public sealed class CareRequest
     public bool Completed { get; internal set; }
 }
 
-public sealed class HouseholdCareNetwork
+public sealed partial class HouseholdCareNetwork
 {
     private long _nextId;
     private readonly List<CareRequest> _requests = new();
@@ -44,7 +44,7 @@ public sealed class HouseholdCareNetwork
     { var request = new CareRequest(++_nextId, requester, good, quantity, priority); _requests.Add(request); return request; }
     public bool Assign(CareRequest request, Agent helper) { if (request.Completed || helper.Inventory.Quantity(request.Good) < request.Quantity) return false; request.AssignedHelper = helper.Id; return true; }
     public bool Deliver(CareRequest request, Agent helper, Agent receiver, long tick)
-    { if (!request.AssignedHelper.HasValue || !request.AssignedHelper.Value.Equals(helper.Id) || !request.Requester.Equals(receiver.Id)) return false; request.Completed = HouseholdCare.TryDeliver(helper, receiver, request.Good, request.Quantity, tick); return request.Completed; }
+    { if (request.Completed || !request.AssignedHelper.HasValue || !request.AssignedHelper.Value.Equals(helper.Id) || !request.Requester.Equals(receiver.Id)) return false; request.Completed = HouseholdCare.TryDeliver(helper, receiver, request.Good, request.Quantity, tick); return request.Completed; }
 }
 
 public sealed record JobOpening(EntityId Employer, Occupation Occupation, Skill Skill, double MinimumSkill, Money Wage);
@@ -68,7 +68,7 @@ public sealed class Settlement
     public int Bandits { get; set; }
 }
 
-public sealed class Caravan
+public sealed partial class Caravan
 {
     public Caravan(long id, string from, string to, double distance) { Id = id; From = from; To = to; Distance = distance; }
     public long Id { get; }
@@ -81,7 +81,7 @@ public sealed class Caravan
     public void Travel(double distance) => Progress = Math.Min(1, Progress + Math.Max(0, distance) / Math.Max(.001, Distance));
 }
 
-public sealed class RegionalNetworkSystem
+public sealed partial class RegionalNetworkSystem
 {
     private long _nextCaravan;
     private readonly SortedDictionary<string, Settlement> _settlements = new(StringComparer.Ordinal);

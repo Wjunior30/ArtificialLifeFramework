@@ -1,10 +1,20 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <OutputType>Exe</OutputType>
+    <IsTestProject>true</IsTestProject>
+    <IsPackable>false</IsPackable>
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
   </PropertyGroup>
   <ItemGroup><ProjectReference Include="..\..\src\ArtificialLife.Core\ArtificialLife.Core.csproj" /></ItemGroup>
+  <ItemGroup><ProjectReference Include="../../samples/ArtificialLife.EngineAdapters/ArtificialLife.EngineAdapters.csproj" /></ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4" PrivateAssets="all" />
+    <None Update="Fixtures/*.json" CopyToOutputDirectory="PreserveNewest" />
+    <Compile Include="../../tools/ApiSurface/ApiContract.cs" Link="ApiContract.cs" />
+    <None Include="../../docs/PublicApi.txt" Link="PublicApi.txt" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
 </Project>
 

@@ -10,12 +10,24 @@ public sealed class LifeEvent
     public string Message { get; }
 }
 
-public sealed class LifeWorld
+public sealed partial class LifeWorld
 {
     private readonly SortedDictionary<EntityId, Agent> _agents = new();
     private readonly List<LifeEvent> _events = new();
     private readonly ulong _seed;
     private UtilityBrain? _brain;
+    private int _eventCapacity = 10_000;
+    public int EventCapacity
+    {
+        get => _eventCapacity;
+        set { if (value < 0 || value > 1_000_000) throw new ArgumentOutOfRangeException(nameof(value)); _eventCapacity = value; TrimEvents(); }
+    }
+    public long DroppedEvents { get; private set; }
+    public IReadOnlyList<LifeEvent> DrainEvents() { var events = _events.ToArray(); _events.Clear(); return events; }
+    internal void Publish(string kind, EntityId subject, string message)
+    { _events.Add(new(Tick, kind, subject, message)); TrimEvents(); }
+    private void TrimEvents()
+    { int excess = _events.Count - _eventCapacity; if (excess > 0) { _events.RemoveRange(0, excess); DroppedEvents += excess; } }
 
     public LifeWorld(ulong seed, long initialTick = 0)
     {
@@ -34,7 +46,7 @@ public sealed class LifeWorld
 
     public void Step(double hours)
     {
-        if (hours <= 0) throw new ArgumentOutOfRangeException(nameof(hours));
+        if (!double.IsFinite(hours) || hours <= 0) throw new ArgumentOutOfRangeException(nameof(hours));
         Tick++;
         foreach (var agent in _agents.Values)
         {
@@ -51,6 +63,7 @@ public sealed class LifeWorld
             _events.Add(new LifeEvent(Tick, "decision", agent.Id, $"{action.Id}:{status}"));
         }
         Economy.Audit();
+        TrimEvents();
     }
 
     public ulong Fingerprint()

@@ -6,15 +6,17 @@ public interface ISimulationObserver { void OnStepCompleted(SimulationSnapshot s
 public sealed record AgentSnapshot(EntityId Id, string Name, bool Alive, string Action, IReadOnlyDictionary<string, double> Needs, long MoneyCents);
 public sealed record SimulationSnapshot(long Tick, ulong Fingerprint, IReadOnlyList<AgentSnapshot> Agents, IReadOnlyList<LifeEvent> Events);
 
-public sealed class PortableSimulation
+public sealed partial class PortableSimulation
 {
+    public const int MaximumStepsPerAdvance = 100_000;
     private readonly SortedDictionary<EntityId, PersonProfile> _profiles = new();
     private readonly Queue<ISimulationCommand> _commands = new();
     private readonly List<ISimulationObserver> _observers = new();
     private double _accumulator;
     public PortableSimulation(ulong seed, double fixedStepHours = 1d / 600)
     {
-        World = new LifeWorld(seed); FixedStepHours = fixedStepHours > 0 ? fixedStepHours : throw new ArgumentOutOfRangeException(nameof(fixedStepHours));
+        if (!double.IsFinite(fixedStepHours) || fixedStepHours <= 0) throw new ArgumentOutOfRangeException(nameof(fixedStepHours));
+        World = new LifeWorld(seed); FixedStepHours = fixedStepHours;
     }
     public LifeWorld World { get; }
     public double FixedStepHours { get; }
@@ -29,13 +31,21 @@ public sealed class PortableSimulation
     public void Observe(ISimulationObserver observer) => _observers.Add(observer ?? throw new ArgumentNullException(nameof(observer)));
     public int Advance(double elapsedHours)
     {
-        if (elapsedHours < 0) throw new ArgumentOutOfRangeException(nameof(elapsedHours));
-        _accumulator += elapsedHours; int steps = 0;
-        while (_accumulator + 1e-12 >= FixedStepHours)
+        if (!double.IsFinite(elapsedHours) || elapsedHours < 0) throw new ArgumentOutOfRangeException(nameof(elapsedHours));
+        double total = _accumulator + elapsedHours;
+        double pendingSteps = total / FixedStepHours;
+        if (!double.IsFinite(pendingSteps) || pendingSteps > MaximumStepsPerAdvance + 1e-9)
+            throw new ArgumentOutOfRangeException(nameof(elapsedHours), $"Advance is limited to {MaximumStepsPerAdvance} steps; split large requests.");
+        int steps = (int)Math.Floor(pendingSteps + 1e-9);
+        _accumulator = total;
+        for (int step = 0; step < steps; step++)
         {
             while (_commands.Count > 0) _commands.Dequeue().Apply(this);
-            World.Step(FixedStepHours); _accumulator -= FixedStepHours; steps++;
-            var snapshot = Snapshot(); foreach (var observer in _observers.ToArray()) observer.OnStepCompleted(snapshot);
+            World.Step(FixedStepHours); _accumulator = Math.Max(0, total - (step + 1) * FixedStepHours);
+            if (_observers.Count > 0)
+            {
+                var snapshot = Snapshot(); foreach (var observer in _observers.ToArray()) observer.OnStepCompleted(snapshot);
+            }
         }
         return steps;
     }

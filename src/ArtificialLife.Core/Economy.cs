@@ -28,9 +28,19 @@ public sealed class Inventory
     }
     public void TransferTo(Inventory destination, string good, long quantity)
     {
-        if (quantity <= 0) throw new ArgumentOutOfRangeException(nameof(quantity));
+        ValidateTransferTo(destination, good, quantity);
+        if (ReferenceEquals(this, destination)) return;
         Add(good, -quantity);
         destination.Add(good, quantity);
+    }
+
+    internal void ValidateTransferTo(Inventory destination, string good, long quantity)
+    {
+        if (destination is null) throw new ArgumentNullException(nameof(destination));
+        if (string.IsNullOrWhiteSpace(good)) throw new ArgumentException("Good id is required.", nameof(good));
+        if (quantity <= 0) throw new ArgumentOutOfRangeException(nameof(quantity));
+        if (Quantity(good) < quantity) throw new InvalidOperationException($"Insufficient {good}.");
+        if (!ReferenceEquals(this, destination)) _ = checked(destination.Quantity(good) + quantity);
     }
 }
 
@@ -52,7 +62,7 @@ public sealed class LedgerEntry
     public string Reason { get; }
 }
 
-public sealed class Economy
+public sealed partial class Economy
 {
     private readonly Dictionary<EntityId, Account> _accounts = new();
     private readonly List<LedgerEntry> _ledger = new();

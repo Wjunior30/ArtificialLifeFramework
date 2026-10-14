@@ -21,7 +21,7 @@ public interface IUtilityAction
     void Cancel(DecisionContext context);
 }
 
-public sealed class UtilityBrain
+public sealed partial class UtilityBrain
 {
     private readonly IUtilityAction[] _actions;
     public UtilityBrain(IEnumerable<IUtilityAction> actions)
@@ -44,7 +44,7 @@ public sealed class UtilityBrain
     }
 }
 
-public sealed class SatisfyNeedAction : IUtilityAction
+public sealed partial class SatisfyNeedAction : IUtilityAction
 {
     private readonly string _need;
     private readonly double _amount;

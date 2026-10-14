@@ -1,0 +1,58 @@
+name: Validate framework
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+  workflow_call:
+permissions:
+  contents: read
+jobs:
+  validate:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            8.0.x
+            10.0.x
+      - run: dotnet restore ArtificialLifeFramework.slnx
+      - run: dotnet build ArtificialLifeFramework.slnx -c Release --no-restore
+      - run: dotnet test ArtificialLifeFramework.slnx -c Release --no-build --logger trx
+      - run: dotnet run --project tests/ArtificialLife.SettlementBacktest -c Release --no-build -- --days=90
+      - run: dotnet run --project tests/ArtificialLife.Benchmarks -c Release --no-build -- --smoke
+      - run: dotnet pack src/ArtificialLife.Core -c Release --no-build -o artifacts/packages
+      - run: dotnet restore samples/ArtificialLife.PackageSmoke --source artifacts/packages --source https://api.nuget.org/v3/index.json
+      - run: dotnet run --project samples/ArtificialLife.PackageSmoke -c Release --no-restore
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: validation-${{ matrix.os }}
+          path: |
+            artifacts/settlement-backtest/report.json
+            artifacts/benchmarks/smoke.json
+            artifacts/packages/*
+            tests/**/TestResults/*.trx
+  compare-platforms:
+    needs: validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: validation-*
+          path: results
+      - name: Compare deterministic states across Windows and Linux
+        shell: python
+        run: |
+          import json, pathlib
+          reports = list(pathlib.Path('results').glob('*/artifacts/settlement-backtest/report.json'))
+          assert len(reports) == 2, reports
+          states = []
+          for path in reports:
+              data = json.loads(path.read_text())
+              assert not data['failures']
+              states.append({(r['policy'], r['scenario'], r['seed']): r['stateHash'] for r in data['rows']})
+          assert states[0] == states[1], 'Cross-platform deterministic replay differs'

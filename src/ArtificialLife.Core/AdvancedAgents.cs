@@ -11,7 +11,7 @@ public enum Skill { Farming, Cooking, Medicine, Construction, Trade, Security, M
 public enum BodyPart { Head, Torso, LeftArm, RightArm, LeftLeg, RightLeg }
 public enum InjurySeverity { None, Minor, Moderate, Severe, Critical }
 
-public sealed class BodyState
+public sealed partial class BodyState
 {
     private readonly Dictionary<BodyPart, InjurySeverity> _injuries = new();
     public double Health { get; private set; } = 1;
@@ -32,7 +32,7 @@ public sealed class BodyState
 
 public sealed record Goal(string Id, double Priority, long ExpiresAtTick = long.MaxValue);
 
-public sealed class PersonProfile
+public sealed partial class PersonProfile
 {
     private readonly Dictionary<Skill, double> _skills = new();
     private readonly Dictionary<string, double> _traits = new(StringComparer.Ordinal);

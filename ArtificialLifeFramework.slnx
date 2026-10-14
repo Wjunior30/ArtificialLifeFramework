@@ -1,5 +1,6 @@
 <Solution>
   <Folder Name="/samples/">
+    <Project Path="samples/ArtificialLife.EngineAdapters/ArtificialLife.EngineAdapters.csproj" />
     <Project Path="samples/ArtificialLife.Demo/ArtificialLife.Demo.csproj" />
   </Folder>
   <Folder Name="/src/">
@@ -9,6 +10,7 @@
     <Project Path="src/SimulationLife.Protocol/SimulationLife.Protocol.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/ArtificialLife.Benchmarks/ArtificialLife.Benchmarks.csproj" />
     <Project Path="tests/ArtificialLife.Tests/ArtificialLife.Tests.csproj" />
     <Project Path="tests/ArtificialLife.SettlementBacktest/ArtificialLife.SettlementBacktest.csproj" />
     <Project Path="tests/SimulationLife.Core.Tests/SimulationLife.Core.Tests.csproj" />

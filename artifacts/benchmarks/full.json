@@ -1,0 +1,58 @@
+{
+  "runtime": ".NET 10.0.12",
+  "os": "Microsoft Windows 10.0.26200",
+  "processors": 12,
+  "mode": "full",
+  "budgetSecondsPerCase": 120,
+  "rows": [
+    {
+      "name": "100-settlements",
+      "steps": 365,
+      "seconds": 0.1539167,
+      "stepsPerSecond": 2371.4125887574255,
+      "allocatedBytes": 10876152,
+      "memoryBefore": 553056,
+      "retainedBytes": 911440,
+      "snapshotMs": 2.1364,
+      "restoreAndCaptureMs": 35.8997,
+      "snapshotBytes": 137020
+    },
+    {
+      "name": "100000-aggregated-agents",
+      "steps": 365,
+      "seconds": 0.1364415,
+      "stepsPerSecond": 2675.139162205048,
+      "allocatedBytes": 13579064,
+      "memoryBefore": 557888,
+      "retainedBytes": 5138064,
+      "snapshotMs": 6.2624,
+      "restoreAndCaptureMs": 56.2061,
+      "snapshotBytes": 1152890
+    },
+    {
+      "name": "1000-simulated-years",
+      "steps": 365000,
+      "seconds": 2.0029205,
+      "stepsPerSecond": 182233.89295780836,
+      "allocatedBytes": 1710824728,
+      "memoryBefore": 294704,
+      "retainedBytes": 522680,
+      "snapshotMs": 0.7328,
+      "restoreAndCaptureMs": 2.2796,
+      "snapshotBytes": 58015
+    },
+    {
+      "name": "10000-individual-agents",
+      "steps": 100,
+      "seconds": 1.0744329,
+      "stepsPerSecond": 93.07235472778245,
+      "allocatedBytes": 245921144,
+      "memoryBefore": 8677264,
+      "retainedBytes": 73018616,
+      "snapshotMs": 118.9199,
+      "restoreAndCaptureMs": 278.8365,
+      "snapshotBytes": 13918998
+    }
+  ],
+  "failures": []
+}

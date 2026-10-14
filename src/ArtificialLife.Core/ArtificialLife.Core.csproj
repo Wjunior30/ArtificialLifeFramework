@@ -5,11 +5,23 @@
     <Nullable>enable</Nullable>
     <LangVersion>latest</LangVersion>
     <PackageId>Wjunior30.ArtificialLife.Core</PackageId>
-    <Version>0.2.0</Version>
+    <Version>0.3.0</Version>
     <Description>Deterministic, engine-neutral artificial life, economy and society simulation.</Description>
     <PackageReadmeFile>README.md</PackageReadmeFile>
+    <Authors>Wjunior30</Authors>
+    <RepositoryUrl>https://github.com/Wjunior30/ArtificialLifeFramework</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageProjectUrl>https://github.com/Wjunior30/ArtificialLifeFramework</PackageProjectUrl>
+    <PackageTags>simulation;deterministic;artificial-life;game-development</PackageTags>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);1591</NoWarn>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
   </PropertyGroup>
   <ItemGroup>
     <None Include="..\..\README.md" Pack="true" PackagePath="\" />
+    <None Include="../../docs/COMPATIBILITY.md" Pack="true" PackagePath="docs/" />
+    <None Include="../../docs/API.md" Pack="true" PackagePath="docs/" />
   </ItemGroup>
 </Project>

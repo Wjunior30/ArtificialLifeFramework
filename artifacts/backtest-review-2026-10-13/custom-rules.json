@@ -1,0 +1,101 @@
+{
+  "date": "2026-10-13",
+  "days": 3650,
+  "seeds": [
+    1,
+    7,
+    42,
+    100,
+    2026,
+    65535
+  ],
+  "scenarios": {
+    "baseline": {
+      "FoodMultiplier": 1,
+      "ConflictMultiplier": 1
+    },
+    "scarcity": {
+      "FoodMultiplier": 0.78,
+      "ConflictMultiplier": 1.1
+    },
+    "hostile": {
+      "FoodMultiplier": 0.94,
+      "ConflictMultiplier": 1.65
+    },
+    "no_food": {
+      "FoodMultiplier": 0,
+      "ConflictMultiplier": 0
+    },
+    "no_conflict": {
+      "FoodMultiplier": 1,
+      "ConflictMultiplier": 0
+    }
+  },
+  "dailyAudits": 0,
+  "replayChecks": 0,
+  "restoreChecks": 0,
+  "elapsedSeconds": 0.0286139,
+  "failures": [
+    "large_founder_group/day=28: Settlement 2 has no population."
+  ],
+  "rows": [],
+  "customProbes": [
+    {
+      "name": "large_founder_group",
+      "day": 28,
+      "rules": {
+        "SiteCount": 18,
+        "InitialPopulation": 240,
+        "InitialSettlements": 3,
+        "FounderCount": 80,
+        "MaximumPopulation": 90,
+        "HamletPopulation": 8,
+        "VillagePopulation": 16,
+        "TownPopulation": 30,
+        "CityPopulation": 45,
+        "HamletBuildings": 3,
+        "VillageBuildings": 8,
+        "TownBuildings": 18,
+        "CityBuildings": 30,
+        "FoundationIntervalDays": 30,
+        "DiplomacyIntervalDays": 7,
+        "MigrationIntervalDays": 14,
+        "RuinMinimumDays": 45,
+        "RuinMaximumDays": 120,
+        "WorkerFraction": 0.66,
+        "FoodConsumptionPerPerson": 0.72,
+        "BirthProbability": 0,
+        "ProsperityBirthBonus": 0,
+        "BuildingBaseCost": 8,
+        "BuildingCostGrowth": 1.45,
+        "WarThreshold": -45,
+        "AllianceThreshold": 55,
+        "Diplomacy": 0,
+        "MaximumWarDays": 180,
+        "TruceDays": 120,
+        "ExhaustionPerBattle": 18,
+        "ExhaustionRecoveryPerDay": 0.2,
+        "PeaceExhaustion": 60,
+        "BattleFoodCostPerPerson": 0.2,
+        "MinimumWarFoodPerPerson": 0.5
+      },
+      "settlements": [
+        {
+          "Id": 1,
+          "Population": 80
+        },
+        {
+          "Id": 2,
+          "Population": 0
+        },
+        {
+          "Id": 3,
+          "Population": 80
+        }
+      ],
+      "errors": [
+        "Settlement 2 has no population."
+      ]
+    }
+  ]
+}

@@ -61,7 +61,7 @@ public sealed class MemoryStore
     }
 }
 
-public sealed class EmotionalState
+public sealed partial class EmotionalState
 {
     private readonly Dictionary<string, double> _values = new(StringComparer.Ordinal);
     public double this[string emotion] => _values.TryGetValue(emotion, out double value) ? value : 0;
@@ -72,7 +72,7 @@ public sealed class EmotionalState
     }
 }
 
-public sealed class RelationshipSet
+public sealed partial class RelationshipSet
 {
     private readonly Dictionary<EntityId, double> _opinions = new();
     public double OpinionOf(EntityId other) => _opinions.TryGetValue(other, out double value) ? value : 0;
@@ -89,7 +89,7 @@ public sealed class Stimulus
     public EntityId? Source { get; }
 }
 
-public sealed class Agent
+public sealed partial class Agent
 {
     private Agent(EntityId id, string name) { Id = id; Name = name; }
     public EntityId Id { get; }

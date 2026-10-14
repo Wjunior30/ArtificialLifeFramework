@@ -2,4 +2,8 @@ bin/
 obj/
 .vs/
 *.user
+.packages/
+.dotnet-cli/
+TestResults/
+artifacts/packages/
 

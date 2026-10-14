@@ -2,34 +2,81 @@ using ArtificialLife.Core;
 using System.Text.Json;
 
 int days = 3650;
-foreach (string argument in args) if (argument.StartsWith("--days=")) days = Math.Clamp(int.Parse(argument[7..]), 90, 3650);
+foreach (string argument in args)
+    if (argument.StartsWith("--days=", StringComparison.Ordinal)) days = Math.Clamp(int.Parse(argument[7..]), 90, 3650);
 ulong[] seeds = [1, 7, 42, 100, 2026, 65535];
-var scenarios = new Dictionary<string, SettlementSimulationOptions>
+var conditions = new Dictionary<string, SettlementSimulationOptions>
 {
-    ["baseline"] = new(), ["scarcity"] = new(.78, 1.1), ["hostile"] = new(.94, 1.65)
+    ["baseline"] = new(), ["scarcity"] = new(.78, 1.1), ["hostile"] = new(.94, 1.65),
+    ["no_food"] = new(0, 0), ["no_conflict"] = new(1, 0)
+};
+var policies = new Dictionary<string, SettlementRules>
+{
+    ["legacy"] = new(), ["negotiated"] = new() { Diplomacy = DiplomacyMode.Negotiated },
+    ["sustainable"] = SettlementRules.Sustainable
 };
 var rows = new List<object>(); var failures = new List<string>();
-int founded = 0, upgrades = 0, alliances = 0, wars = 0, battles = 0, destroyed = 0, refounded = 0, cities = 0;
-foreach (var scenario in scenarios) foreach (ulong seed in seeds)
+int audits = 0, replays = 0, restores = 0;
+foreach (var policy in policies)
+foreach (var condition in conditions)
+foreach (ulong seed in seeds)
 {
-    var simulation = new SettlementSimulation(seed, scenario.Value); simulation.Advance(days);
-    var audit = simulation.Audit(); foreach (string error in audit) failures.Add($"{scenario.Key}/{seed}: {error}");
-    if (simulation.Settlements.Count == 0) failures.Add($"{scenario.Key}/{seed}: no living settlement");
-    if (simulation.Statistics.PeakSettlements < 3) failures.Add($"{scenario.Key}/{seed}: initial settlements were not sustained");
+    string label = $"{policy.Key}/{condition.Key}/{seed}";
+    var simulation = new SettlementSimulation(seed, condition.Value, policy.Value);
+    var checkpoints = new List<(int Day, SimulationSave Save)>();
+    var timeline = new List<object>();
+    for (int day = 1; day <= days; day++)
+    {
+        simulation.Advance(1); audits++;
+        foreach (string error in simulation.Audit()) failures.Add($"{label}/day={day}: {error}");
+        if (day == days / 2 || day == Math.Min(500, days / 3)) checkpoints.Add((day, simulation.CaptureState()));
+        if (day % 365 == 0 || day == days)
+            timeline.Add(new { day, living = simulation.Settlements.Count, population = simulation.Nomads + simulation.Settlements.Sum(x => x.Population),
+                food = simulation.Settlements.Sum(x => x.Food), materials = simulation.Settlements.Sum(x => x.Materials),
+                simulation.Statistics.Deaths, simulation.Statistics.StarvationDeaths, simulation.Statistics.Battles });
+    }
+    var replay = new SettlementSimulation(seed, condition.Value, policy.Value); replay.Advance(days); replays++;
+    if (simulation.StateHash() != replay.StateHash()) failures.Add($"{label}: deterministic replay diverged");
+    foreach (var checkpoint in checkpoints)
+    {
+        restores++;
+        try
+        {
+            var resumed = SettlementSimulation.Restore(checkpoint.Save);
+            if (resumed.StateHash() != checkpoint.Save.Checksum) failures.Add($"{label}/{checkpoint.Day}: restore changed state");
+            resumed.Advance(days - checkpoint.Day);
+            if (resumed.StateHash() != simulation.StateHash()) failures.Add($"{label}/{checkpoint.Day}: resume diverged");
+        }
+        catch (Exception error) { failures.Add($"{label}/{checkpoint.Day}: restore failed: {error.Message}"); }
+    }
+    var active = new HashSet<int>();
+    foreach (var entry in simulation.History)
+    {
+        if (entry.Kind == "foundation") { if (!active.Add(entry.SettlementId)) failures.Add($"{label}: duplicate foundation"); continue; }
+        if (!active.Contains(entry.SettlementId) || (entry.OtherId != 0 && !active.Contains(entry.OtherId))) failures.Add($"{label}/{entry.Day}: inactive participant in {entry.Kind}");
+        if (entry.Kind == "destruction") active.Remove(entry.SettlementId);
+    }
+    if (!active.SetEquals(simulation.Settlements.Select(x => x.Id))) failures.Add($"{label}: history differs from live state");
+    if (simulation.ReadEvents().Events.Count != simulation.History.Count) failures.Add($"{label}: typed events incomplete");
+    if (condition.Key == "no_conflict" && simulation.Statistics.Battles != 0) failures.Add($"{label}: battle without conflict");
+    if (condition.Key == "no_food" && policy.Value.AllowStarvationExtinction && days >= 3650 && (simulation.Settlements.Count != 0 || simulation.Nomads != 0))
+        failures.Add($"{label}: extinction did not complete");
+    if (condition.Key == "baseline" && days >= 3650 && !simulation.Settlements.Any(x => x.Stage == SettlementStage.City)) failures.Add($"{label}: no city after ten years");
     var stages = simulation.Settlements.GroupBy(x => x.Stage).ToDictionary(x => x.Key.ToString(), x => x.Count());
-    founded += simulation.Statistics.Founded; upgrades += simulation.Statistics.Upgrades; alliances += simulation.Statistics.Alliances;
-    wars += simulation.Statistics.Wars; battles += simulation.Statistics.Battles; destroyed += simulation.Statistics.Destroyed;
-    refounded += simulation.Statistics.Refounded; cities += stages.GetValueOrDefault(nameof(SettlementStage.City));
-    rows.Add(new { scenario = scenario.Key, seed, days, living = simulation.Settlements.Count, nomads = simulation.Nomads, stages, simulation.Statistics, fingerprint = simulation.Fingerprint().ToString("X16") });
-    Console.WriteLine($"{scenario.Key,-8} seed={seed,-5} living={simulation.Settlements.Count,-2} stages={string.Join(',', stages.Select(x => $"{x.Key}:{x.Value}"))}");
+    var stats = simulation.Statistics;
+    rows.Add(new { policy = policy.Key, scenario = condition.Key, seed, days, living = simulation.Settlements.Count,
+        population = simulation.Nomads + simulation.Settlements.Sum(x => x.Population), nomads = simulation.Nomads, stages,
+        statistics = stats, deathsPerThousandPersonYears = stats.PopulationDays == 0 ? 0 : stats.Deaths * 365_000d / stats.PopulationDays,
+        meanCompletedWarDays = stats.CompletedWars == 0 ? 0 : (double)stats.TotalWarDays / stats.CompletedWars,
+        stateHash = simulation.StateHash(), timeline });
+    Console.WriteLine($"{label}: living={simulation.Settlements.Count}, deaths={stats.Deaths}, peace={stats.Peaces}");
 }
-if (founded <= scenarios.Count * seeds.Length * 3) failures.Add("No settlements were founded after initialization.");
-if (upgrades < scenarios.Count * seeds.Length * 2) failures.Add("Settlements rarely progressed beyond camps.");
-if (alliances == 0 || wars == 0 || battles == 0 || destroyed == 0 || refounded == 0) failures.Add("One or more historical cycles never occurred.");
-if (days >= 3650 && cities == 0) failures.Add("No settlement completed the camp-to-city lifecycle.");
-var aggregate = new { founded, upgrades, alliances, wars, battles, destroyed, refounded, cities };
 Directory.CreateDirectory("artifacts/settlement-backtest");
-File.WriteAllText("artifacts/settlement-backtest/report.json", JsonSerializer.Serialize(new { schema = 1, days, seeds, scenarios, aggregate, failures, rows }, new JsonSerializerOptions { WriteIndented = true }));
-Console.WriteLine($"Settlement backtest: scenarios={rows.Count} aggregate={JsonSerializer.Serialize(aggregate)} failures={failures.Count}");
+File.WriteAllText("artifacts/settlement-backtest/report.json", JsonSerializer.Serialize(new
+{
+    schema = 3, fingerprintVersion = SettlementSimulation.FingerprintVersion, days, seeds, conditions, policies,
+    audits, replays, restores, failures, rows
+}, new JsonSerializerOptions { WriteIndented = true }));
+Console.WriteLine($"Settlement backtest: scenarios={rows.Count}, audits={audits}, replays={replays}, restores={restores}, failures={failures.Count}");
 foreach (string failure in failures) Console.Error.WriteLine(failure);
 return failures.Count == 0 ? 0 : 1;

@@ -3,6 +3,8 @@ namespace ArtificialLife.Core;
 public struct DeterministicRandom
 {
     private ulong _state;
+    internal ulong State => _state;
+    internal static DeterministicRandom FromState(ulong state) => new() { _state = state };
 
     public DeterministicRandom(ulong seed) => _state = StableHash.Mix(seed);
 

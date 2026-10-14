@@ -19,12 +19,23 @@ public sealed class Market
 
     public void Trade(long tick, Agent buyer, Agent seller, string good, long quantity, Money unitPrice)
     {
+        if (buyer is null) throw new ArgumentNullException(nameof(buyer));
+        if (seller is null) throw new ArgumentNullException(nameof(seller));
         if (quantity <= 0 || unitPrice.Cents < 0) throw new ArgumentOutOfRangeException(nameof(quantity));
-        if (seller.Inventory.Quantity(good) < quantity) throw new InvalidOperationException($"Seller lacks {good}.");
+        if (_policy.SalesTaxBasisPoints < 0 || _policy.SalesTaxBasisPoints > 10_000)
+            throw new ArgumentOutOfRangeException(nameof(EconomicPolicy.SalesTaxBasisPoints));
+        seller.Inventory.ValidateTransferTo(buyer.Inventory, good, quantity);
         Money gross = new(checked(unitPrice.Cents * quantity));
-        Money tax = _treasury.HasValue ? _policy.ApplyRate(gross, _policy.SalesTaxBasisPoints) : Money.Zero;
+        Money tax = _treasury.HasValue ? new Money((long)((decimal)gross.Cents * _policy.SalesTaxBasisPoints / 10_000)) : Money.Zero;
         Money net = gross - tax;
-        _economy.Transfer(tick, buyer.Id, seller.Id, net, $"sale:{good}");
+
+        // Validate the entire sale before changing either money or goods. A balanced
+        // non-negative ledger also guarantees room for transfers in destination accounts.
+        _economy.Audit();
+        if (_economy.BalanceOf(buyer.Id).Cents < gross.Cents) throw new InvalidOperationException("Insufficient funds.");
+        _ = _economy.BalanceOf(seller.Id);
+        if (_treasury.HasValue) _ = _economy.BalanceOf(_treasury.Value);
+        if (net.Cents > 0) _economy.Transfer(tick, buyer.Id, seller.Id, net, $"sale:{good}");
         if (tax.Cents > 0) _economy.Transfer(tick, buyer.Id, _treasury!.Value, tax, $"sales-tax:{good}");
         seller.Inventory.TransferTo(buyer.Inventory, good, quantity);
         _economy.Audit();

@@ -1,0 +1,54 @@
+name: Prepare or publish release
+on:
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: Publish packages to NuGet after reviewing distribution rights and release version
+        type: boolean
+        default: false
+permissions:
+  contents: read
+jobs:
+  quality:
+    uses: ./.github/workflows/ci.yml
+  prepare:
+    needs: quality
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            8.0.x
+            10.0.x
+      - run: dotnet restore ArtificialLifeFramework.slnx
+      - run: dotnet build ArtificialLifeFramework.slnx -c Release --no-restore
+      - run: dotnet run --project tests/ArtificialLife.SettlementBacktest -c Release --no-build -- --days=3650
+      - run: dotnet run --project tests/ArtificialLife.Benchmarks -c Release --no-build
+      - run: dotnet pack src/ArtificialLife.Core -c Release --no-build -o artifacts/packages
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-candidate
+          path: |
+            artifacts/packages/*
+            artifacts/benchmarks/full.json
+            artifacts/settlement-backtest/report.json
+  publish:
+    if: inputs.publish
+    needs: prepare
+    environment: nuget
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-candidate
+          path: release
+      - name: Publish reviewed package and symbols
+        env:
+          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+        run: |
+          test -n "$NUGET_API_KEY"
+          dotnet nuget push 'release/packages/*.nupkg' --api-key "$NUGET_API_KEY" --source https://api.nuget.org/v3/index.json
