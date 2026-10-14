@@ -6,7 +6,7 @@ public sealed partial class SettlementSimulation
     {
         var errors = new List<string>(); var occupied = new HashSet<int>();
         if (Nomads < 0) errors.Add("Negative nomad population.");
-        if ((long)Nomads + Settlements.Sum(x => (long)x.Population) != (long)_rules.InitialPopulation + Statistics.Births - Statistics.Deaths)
+        if ((long)Nomads + Settlements.Sum(x => (long)x.Population) != (long)_rules.InitialPopulation + Statistics.ExternalArrivals + Statistics.Births - Statistics.Deaths)
             errors.Add("Population conservation failed.");
         foreach (EmergentSettlement settlement in Settlements)
         {

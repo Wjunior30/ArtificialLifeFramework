@@ -57,7 +57,7 @@ public sealed record SettlementRules
         Diplomacy = DiplomacyMode.Negotiated, AllowStarvationExtinction = true,
         FoodStoragePerPerson = 120, MaterialStoragePerPerson = 80,
         FoodSpoilagePerDay = .001, BuildingMaintenancePerDay = .02,
-        TruceDays = 240, MaximumWarDays = 90
+        TruceDays = 730, MaximumWarDays = 45, ExhaustionPerBattle = 60
     };
 
     internal int[] PopulationThresholds => new[] { 0, HamletPopulation, VillagePopulation, TownPopulation, CityPopulation };

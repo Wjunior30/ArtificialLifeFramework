@@ -54,6 +54,7 @@ public sealed class SettlementStatistics
     public long TotalWarDays { get; internal set; }
     public int StarvationDeaths { get; internal set; }
     public long HungryPersonDays { get; internal set; }
+    public int ExternalArrivals { get; internal set; }
 }
 
 public sealed record SettlementSimulationOptions(double FoodMultiplier = 1, double ConflictMultiplier = 1)
@@ -106,6 +107,13 @@ public sealed partial class SettlementSimulation
     {
         if (days < 0 || (long)Day + days > int.MaxValue - Math.Max(_rules.RuinMaximumDays, _rules.TruceDays)) throw new ArgumentOutOfRangeException(nameof(days));
         for (int i = 0; i < days; i++) AdvanceDay();
+    }
+
+    /// <summary>Adds population supplied by the host, allowing an extinct region to be repopulated without violating audits.</summary>
+    public void AdmitExternalMigrants(int people)
+    {
+        if (people < 1 || (long)Nomads + people > 1_000_000) throw new ArgumentOutOfRangeException(nameof(people));
+        Nomads = checked(Nomads + people); Statistics.ExternalArrivals = checked(Statistics.ExternalArrivals + people); UpdatePeaks();
     }
 
     public const int FingerprintVersion = 3;

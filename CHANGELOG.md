@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Track complete Legacy conflict lifecycles and active-war duration without changing its combat model.
+- Tune the Sustainable preset toward shorter wars, stronger exhaustion and longer truces.
+- Add audited external migration so hosts can repopulate extinct regions.
+- Report extinction timing and cohort mortality separately from annualized mortality in backtests.
+
+## Unreleased
+
 ### 0.3.0 implementation
 
 - Fix configurable migration groups emptying live settlements; add permanent regression cases.

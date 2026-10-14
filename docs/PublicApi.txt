@@ -903,6 +903,7 @@ TYPE ArtificialLife.Core.SettlementSimulation : System.Object []
   Method: UInt64 Fingerprint()
   Property: System.UInt64 Seed { get;  }
   Constructor: Void .ctor(UInt64, ArtificialLife.Core.SettlementSimulationOptions, ArtificialLife.Core.SettlementRules, ArtificialLife.Core.SettlementPolicies)
+  Method: Void AdmitExternalMigrants(Int32)
   Method: Void Advance(Int32)
 TYPE ArtificialLife.Core.SettlementSimulationOptions : System.Object [System.IEquatable<ArtificialLife.Core.SettlementSimulationOptions>]
   Method: ArtificialLife.Core.SettlementSimulationOptions <Clone>$()
@@ -969,6 +970,7 @@ TYPE ArtificialLife.Core.SettlementStatistics : System.Object []
   Property: System.Int32 CompletedWars { get;  }
   Property: System.Int32 Deaths { get;  }
   Property: System.Int32 Destroyed { get;  }
+  Property: System.Int32 ExternalArrivals { get;  }
   Property: System.Int32 Founded { get;  }
   Property: System.Int32 Migrations { get;  }
   Property: System.Int32 Peaces { get;  }

@@ -50,7 +50,7 @@ public sealed class FrameworkTests
         var old = JsonSerializer.Deserialize<SimulationSave>(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Fixtures", $"settlements-v1-{mode}.json")))!;
         Assert.Equal(1, old.Schema);
         var migrated = SettlementSimulation.Restore(old); Assert.Equal(500, migrated.Day); Assert.Empty(migrated.Audit());
-        Assert.False(migrated.Rules.AllowStarvationExtinction); Assert.Equal(2, migrated.CaptureState().Schema);
+        Assert.False(migrated.Rules.AllowStarvationExtinction); Assert.Equal(3, migrated.CaptureState().Schema);
         var replay = SettlementSimulation.Restore(migrated.CaptureState());
         migrated.Advance(500); replay.Advance(500); Assert.Equal(migrated.StateHash(), replay.StateHash());
     }

@@ -84,6 +84,20 @@ public sealed class FrameworkFeatureTests
         Assert.Empty(world.Agents);
     }
 
+    [Fact]
+    [Trait("Category", "Population")]
+    public void ExternalMigrationCanRestartAnExtinctRegionAndRoundTrips()
+    {
+        var simulation = new SettlementSimulation(42, new(0, 0), SettlementRules.Sustainable);
+        simulation.Advance(3650);
+        Assert.Empty(simulation.Settlements);
+        simulation.AdmitExternalMigrants(simulation.Rules.FounderCount);
+        Assert.Empty(simulation.Audit());
+        var restored = SettlementSimulation.Restore(simulation.CaptureState());
+        Assert.Equal(simulation.StateHash(), restored.StateHash());
+        Assert.Equal(simulation.Rules.FounderCount, restored.Statistics.ExternalArrivals);
+    }
+
     private sealed class RecordingTelemetry : ISimulationTelemetryObserver
     {
         public SimulationObservation? Last { get; private set; }

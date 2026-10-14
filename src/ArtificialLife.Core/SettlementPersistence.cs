@@ -2,10 +2,10 @@ namespace ArtificialLife.Core;
 
 public sealed partial class SettlementSimulation
 {
-    public SimulationSave CaptureState() => SaveFormat.Capture("settlements", WriteState, 2);
-    /// <summary>Accepts schemas 1 and 2. Schema 1 uses legacy resource defaults and built-in policies.</summary>
+    public SimulationSave CaptureState() => SaveFormat.Capture("settlements", WriteState, 3);
+    /// <summary>Accepts schemas 1 through 3. Older schemas default external arrivals to zero.</summary>
     public static SettlementSimulation Restore(SimulationSave save, RestoreHandlers? handlers = null)
-        => SaveFormat.Restore(save, "settlements", r => ReadState(r, save.Schema, handlers), 2);
+        => SaveFormat.Restore(save, "settlements", r => ReadState(r, save.Schema, handlers), 3);
     public string StateHash() => CaptureState().Checksum;
 
     internal void WriteState(StateWriter w)
@@ -41,6 +41,7 @@ public sealed partial class SettlementSimulation
         { w.Write(entry.Day); w.Write(entry.Kind); w.Write(entry.SettlementId); w.Write(entry.OtherId); w.Write(entry.People); w.Write(entry.Detail); }
         _rules.WriteAdditionalState(w); _policies.WriteState(w);
         w.Write(Statistics.PopulationDays); w.Write(Statistics.ActiveWarDays); w.Write(Statistics.FoodLost); w.Write(Statistics.MaterialsLost);
+        w.Write(Statistics.ExternalArrivals);
     }
 
     internal static SettlementSimulation ReadState(StateReader r, int schema, RestoreHandlers? handlers)
@@ -111,6 +112,7 @@ public sealed partial class SettlementSimulation
             sim._policies = SettlementPolicies.ReadState(r, handlers);
             stats.PopulationDays = r.Long(); stats.ActiveWarDays = r.Long(); stats.FoodLost = r.Number(); stats.MaterialsLost = r.Number();
         }
+        if (schema >= 3) stats.ExternalArrivals = r.Int();
         if (!active.SetEquals(ids) || stats.Founded != allIds.Count || stats.Founded - stats.Destroyed != ids.Count ||
             allIds.Count != sim._nextId - 1 || sim.Audit().Count != 0) throw new ArgumentException("Snapshot settlement audit failed.");
         return sim;

@@ -54,7 +54,7 @@ restored.Advance(500);
 var batch = restored.ReadEvents();
 ```
 
-`new SettlementRules()` preserva diplomacia Legacy, estoques ilimitados e proteção do último habitante contra fome. O preset opcional `Sustainable` habilita diplomacia negociada, extinção por fome, limites de estoque, perdas, manutenção e tréguas maiores. São escolhas de jogo; o preset não representa uma comprovação de realismo ou equilíbrio universal.
+`new SettlementRules()` preserva diplomacia Legacy, estoques ilimitados e proteção do último habitante contra fome para compatibilidade. Para novos jogos, o preset recomendado `Sustainable` habilita diplomacia negociada, extinção por fome, limites de estoque, perdas, manutenção, guerras mais curtas e tréguas maiores. Regiões extintas podem receber população externa explicitamente com `AdmitExternalMigrants`, mantendo a conservação populacional auditável.
 
 A migração exige moradores suficientes para o grupo e para a população remanescente. Os limites e probabilidades são configuráveis. `SettlementPolicies` permite substituir `ISettlementSiteEvaluator`, `IConflictResolver` e `ISettlementProgression`. `ISettlementDailyRule` permite efeitos determinísticos adicionais de clima, demografia, produção, doenças, cultura e governo sem incorporar essas mecânicas obrigatoriamente ao núcleo. As extensões devem fornecer estado serializável e codecs de restauração.
 
@@ -64,7 +64,7 @@ A migração exige moradores suficientes para o grupo e para a população reman
 
 `CaptureState`/`Restore` salvam o mundo, assentamentos ou host portátil. O host inclui acumulador de tempo, perfis, ajuda social, caravanas e comandos pendentes. Observadores e cenas pertencem à engine e devem ser reconectados após carregar.
 
-Saves regionais usam esquema 2 e migram o esquema 1. Fingerprints regionais usam versão 3; hashes antigos não são comparáveis. Estado de extensões exige handlers. O checksum detecta corrupção acidental, sem autenticar a origem do arquivo. Consulte [API](docs/API.md), [compatibilidade](docs/COMPATIBILITY.md) e [matriz de migração](MIGRATION.md).
+Saves regionais usam esquema 3 e migram os esquemas 1 e 2. Fingerprints regionais usam versão 3; hashes antigos não são comparáveis. Estado de extensões exige handlers. O checksum detecta corrupção acidental, sem autenticar a origem do arquivo. Consulte [API](docs/API.md), [compatibilidade](docs/COMPATIBILITY.md) e [matriz de migração](MIGRATION.md).
 
 Compras validam contas, saldo, imposto e capacidade antes da transferência. Impostos de venda aceitam 0–10.000 pontos-base; transações gratuitas e imposto de 100% são suportados. Ajuda concluída não pode ser entregue novamente. Tempos e multiplicadores precisam ser finitos. `PortableSimulation.Advance` aceita até 100 mil passos por chamada; entradas recusadas não alteram o acumulador. Coleções regionais são somente para leitura.
 

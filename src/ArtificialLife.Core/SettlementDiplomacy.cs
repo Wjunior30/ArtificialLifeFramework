@@ -20,8 +20,11 @@ public sealed partial class SettlementSimulation
             if (previous < _rules.AllianceThreshold && current >= _rules.AllianceThreshold) { Statistics.Alliances++; _history.Add(new(Day, "alliance", first.Id, second.Id)); }
             if (_rules.Diplomacy == DiplomacyMode.Negotiated)
             { if (current <= _rules.WarThreshold) DeclareWar(first, second); }
-            else if (previous > _rules.WarThreshold && current <= _rules.WarThreshold)
-            { Statistics.Wars++; _history.Add(new(Day, "war", first.Id, second.Id)); }
+            else
+            {
+                if (previous > _rules.WarThreshold && current <= _rules.WarThreshold) DeclareWar(first, second);
+                else if (previous <= _rules.WarThreshold && current > _rules.WarThreshold) EndWar(key, false);
+            }
         }
     }
 
