@@ -44,6 +44,14 @@ TYPE ArtificialLife.Core.AgentSnapshot : System.Object [System.IEquatable<Artifi
   Method: System.String ToString()
   Constructor: Void .ctor(ArtificialLife.Core.EntityId, System.String, Boolean, System.String, System.Collections.Generic.IReadOnlyDictionary`2[System.String,System.Double], Int64)
   Method: Void Deconstruct(ArtificialLife.Core.EntityId ByRef, System.String ByRef, Boolean ByRef, System.String ByRef, System.Collections.Generic.IReadOnlyDictionary`2[System.String,System.Double] ByRef, Int64 ByRef)
+TYPE ArtificialLife.Core.AiLodScheduler : System.Object []
+  Method: Boolean ShouldThink(ArtificialLife.Core.EntityId, Int64, Double)
+  Property: System.Double MidDistance { get; set;  }
+  Property: System.Double NearDistance { get; set;  }
+  Property: System.Int32 FarInterval { get; set;  }
+  Method: Int32 IntervalFor(Double)
+  Property: System.Int32 MidInterval { get; set;  }
+  Constructor: Void .ctor()
 TYPE ArtificialLife.Core.AllianceFormed : ArtificialLife.Core.SettlementEvent [System.IEquatable<ArtificialLife.Core.AllianceFormed>,System.IEquatable<ArtificialLife.Core.SettlementEvent>]
   Method: ArtificialLife.Core.SettlementEvent <Clone>$()
   Method: Boolean Equals(ArtificialLife.Core.AllianceFormed)
@@ -192,6 +200,13 @@ TYPE ArtificialLife.Core.CreditAgreement : System.Object []
   Property: System.Int32 MaximumArrears { get;  }
   Constructor: Void .ctor(ArtificialLife.Core.EntityId, ArtificialLife.Core.EntityId, ArtificialLife.Core.Money, Int32, Int32)
   Method: Void Accrue()
+TYPE ArtificialLife.Core.CurveKind : System.Enum [System.IComparable,System.IConvertible,System.IFormattable,System.ISpanFormattable]
+  Field: ArtificialLife.Core.CurveKind Exponential = 2
+  Field: ArtificialLife.Core.CurveKind Inverse = 4
+  Field: ArtificialLife.Core.CurveKind Linear = 0
+  Field: ArtificialLife.Core.CurveKind Logistic = 3
+  Field: ArtificialLife.Core.CurveKind Quadratic = 1
+  Field: Int32 value__
 TYPE ArtificialLife.Core.DebtContract : System.Object []
   Property: ArtificialLife.Core.EntityId Borrower { get;  }
   Property: ArtificialLife.Core.EntityId Lender { get;  }
@@ -377,6 +392,14 @@ TYPE ArtificialLife.Core.Goal : System.Object [System.IEquatable<ArtificialLife.
   Method: System.String ToString()
   Constructor: Void .ctor(System.String, Double, Int64)
   Method: Void Deconstruct(System.String ByRef, Double ByRef, Int64 ByRef)
+TYPE ArtificialLife.Core.GoapAction : System.Object []
+  Property: System.Double Cost { get;  }
+  Property: System.Collections.Generic.IReadOnlyDictionary<System.String,System.Boolean> Effects { get;  }
+  Property: System.Collections.Generic.IReadOnlyDictionary<System.String,System.Boolean> Preconditions { get;  }
+  Property: System.String Id { get;  }
+  Constructor: Void .ctor(System.String, Double, System.Collections.Generic.IReadOnlyDictionary`2[System.String,System.Boolean], System.Collections.Generic.IReadOnlyDictionary`2[System.String,System.Boolean])
+TYPE ArtificialLife.Core.GoapPlanner : System.Object []
+  Method: System.Collections.Generic.IReadOnlyList`1[ArtificialLife.Core.GoapAction] Plan(System.Collections.Generic.IReadOnlyDictionary`2[System.String,System.Boolean], System.Collections.Generic.IReadOnlyDictionary`2[System.String,System.Boolean], System.Collections.Generic.IEnumerable`1[ArtificialLife.Core.GoapAction], Int32)
 TYPE ArtificialLife.Core.Household : System.Object []
   Property: ArtificialLife.Core.EntityId Id { get;  }
   Property: ArtificialLife.Core.Inventory SharedInventory { get;  }
@@ -532,6 +555,8 @@ TYPE ArtificialLife.Core.Memory : System.Object []
   Property: System.String Kind { get;  }
   Constructor: Void .ctor(Int64, System.String, System.String, Double, System.Nullable`1[ArtificialLife.Core.EntityId])
 TYPE ArtificialLife.Core.MemoryStore : System.Object []
+  Field: Int32 Capacity = 256
+  Method: System.Collections.Generic.IEnumerable`1[ArtificialLife.Core.Memory] About(ArtificialLife.Core.EntityId)
   Property: System.Collections.Generic.IReadOnlyList<ArtificialLife.Core.Memory> All { get;  }
   Constructor: Void .ctor()
   Method: Void Decay(Double)
@@ -699,6 +724,13 @@ TYPE ArtificialLife.Core.RelationshipSet : System.Object []
   Method: Double OpinionOf(ArtificialLife.Core.EntityId)
   Constructor: Void .ctor()
   Method: Void Change(ArtificialLife.Core.EntityId, Double)
+TYPE ArtificialLife.Core.ResponseCurve : System.ValueType []
+  Property: ArtificialLife.Core.CurveKind Kind { get;  }
+  Method: Double Combine(System.Collections.Generic.IEnumerable`1[System.Double])
+  Method: Double Evaluate(Double)
+  Property: System.Double Midpoint { get;  }
+  Property: System.Double Steepness { get;  }
+  Constructor: Void .ctor(ArtificialLife.Core.CurveKind, Double, Double)
 TYPE ArtificialLife.Core.RestoreHandlers : System.Object []
   Property: System.Func<ArtificialLife.Core.ExtensionState,ArtificialLife.Core.ISettlementExtension> SettlementPolicy { get; set;  }
   Property: System.Func<ArtificialLife.Core.ExtensionState,ArtificialLife.Core.ISimulationCommand> Command { get; set;  }
@@ -1126,6 +1158,13 @@ TYPE ArtificialLife.Core.SocialTaskStatus : System.Enum [System.IComparable,Syst
   Field: ArtificialLife.Core.SocialTaskStatus InProgress = 1
   Field: ArtificialLife.Core.SocialTaskStatus Planned = 0
   Field: Int32 value__
+TYPE ArtificialLife.Core.SpatialHash : System.Object []
+  Method: Boolean Remove(ArtificialLife.Core.EntityId)
+  Method: Boolean TryGetPosition(ArtificialLife.Core.EntityId, Double ByRef, Double ByRef)
+  Property: System.Int32 Count { get;  }
+  Method: System.Collections.Generic.IReadOnlyList`1[ArtificialLife.Core.EntityId] Query(Double, Double, Double)
+  Constructor: Void .ctor(Double)
+  Method: Void Set(ArtificialLife.Core.EntityId, Double, Double)
 TYPE ArtificialLife.Core.StableHash : System.Object []
   Method: UInt64 Combine(UInt64, UInt64[])
   Method: UInt64 Mix(UInt64)
@@ -1138,6 +1177,8 @@ TYPE ArtificialLife.Core.Stimulus : System.Object []
   Constructor: Void .ctor(System.String, System.String, Double, System.Nullable`1[ArtificialLife.Core.EntityId])
 TYPE ArtificialLife.Core.UtilityBrain : System.Object []
   Method: ArtificialLife.Core.IUtilityAction Choose(ArtificialLife.Core.DecisionContext)
+  Property: System.Double CommitmentBonus { get; set;  }
+  Property: System.Int32 RandomTopN { get; set;  }
   Constructor: Void .ctor(System.Collections.Generic.IEnumerable`1[ArtificialLife.Core.IUtilityAction])
 TYPE ArtificialLife.Core.Vec2 : System.ValueType [System.IEquatable<ArtificialLife.Core.Vec2>]
   Method: Boolean Equals(ArtificialLife.Core.Vec2)

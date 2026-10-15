@@ -47,17 +47,41 @@ public sealed class Memory
 
 public sealed class MemoryStore
 {
-    private readonly List<Memory> _items = new();
-    public IReadOnlyList<Memory> All => _items;
+    public const int Capacity = 256;
+    private readonly Memory[] _buffer = new Memory[Capacity];
+    private int _head, _count;
+    private readonly View _view;
+    public MemoryStore() => _view = new View(this);
+    /// <summary>Oldest first.</summary>
+    public IReadOnlyList<Memory> All => _view;
     public void Remember(Memory memory)
     {
-        _items.Add(memory ?? throw new ArgumentNullException(nameof(memory)));
-        if (_items.Count > 256) _items.RemoveAt(0);
+        if (memory is null) throw new ArgumentNullException(nameof(memory));
+        _buffer[(_head + _count) % Capacity] = memory;
+        if (_count < Capacity) _count++; else _head = (_head + 1) % Capacity;
     }
+    public IEnumerable<Memory> About(EntityId subject) { foreach (var m in _view) if (m.Subject.HasValue && m.Subject.Value.Equals(subject)) yield return m; }
     public void Decay(double amount)
     {
-        foreach (var memory in _items) memory.Fade(amount);
-        _items.RemoveAll(x => x.Importance <= 0.001);
+        int kept = 0;
+        for (int i = 0; i < _count; i++)
+        {
+            var m = _buffer[(_head + i) % Capacity];
+            m.Fade(amount);
+            if (m.Importance > 0.001) _buffer[(_head + kept++) % Capacity] = m;
+        }
+        for (int i = kept; i < _count; i++) _buffer[(_head + i) % Capacity] = null!;
+        _count = kept;
+    }
+
+    private sealed class View : IReadOnlyList<Memory>
+    {
+        private readonly MemoryStore _s;
+        public View(MemoryStore s) => _s = s;
+        public Memory this[int index] => (uint)index < (uint)_s._count ? _s._buffer[(_s._head + index) % Capacity] : throw new ArgumentOutOfRangeException(nameof(index));
+        public int Count => _s._count;
+        public IEnumerator<Memory> GetEnumerator() { for (int i = 0; i < _s._count; i++) yield return this[i]; }
+        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
     }
 }
 

@@ -30,17 +30,31 @@ public sealed partial class UtilityBrain
         if (_actions.Length == 0) throw new ArgumentException("At least one action is required.", nameof(actions));
     }
 
+    /// <summary>Score bonus for the action the agent is already doing (hysteresis). 0 keeps legacy behaviour.</summary>
+    public double CommitmentBonus { get; set; }
+    /// <summary>Picks randomly, weighted by score, among the best N actions. 1 keeps legacy behaviour.</summary>
+    public int RandomTopN { get; set; } = 1;
+
     public IUtilityAction Choose(DecisionContext context)
     {
-        IUtilityAction? winner = null;
-        double best = double.NegativeInfinity;
+        var scored = new List<(IUtilityAction Action, double Score)>(_actions.Length);
+        int best = -1;
         foreach (var action in _actions)
         {
             if (!action.CanStart(context)) continue;
             double score = action.Score(context);
-            if (score > best) { best = score; winner = action; }
+            if (action.Id == context.Agent.CurrentAction) score += CommitmentBonus;
+            scored.Add((action, score));
+            if (best < 0 || score > scored[best].Score) best = scored.Count - 1;
         }
-        return winner ?? throw new InvalidOperationException("No available action.");
+        if (best < 0) throw new InvalidOperationException("No available action.");
+        if (RandomTopN <= 1) return scored[best].Action;
+        var top = scored.OrderByDescending(x => x.Score).ThenBy(x => x.Action.Id, StringComparer.Ordinal).Take(RandomTopN).ToArray();
+        double floor = top[top.Length - 1].Score, total = 0;
+        foreach (var item in top) total += item.Score - floor + 1e-6;
+        double roll = context.Random.NextDouble() * total;
+        foreach (var item in top) { roll -= item.Score - floor + 1e-6; if (roll <= 0) return item.Action; }
+        return top[0].Action;
     }
 }
 
