@@ -561,6 +561,13 @@ TYPE ArtificialLife.Core.MemoryStore : System.Object []
   Constructor: Void .ctor()
   Method: Void Decay(Double)
   Method: Void Remember(ArtificialLife.Core.Memory)
+TYPE ArtificialLife.Core.MissionKind : System.Enum [System.IComparable,System.IConvertible,System.IFormattable,System.ISpanFormattable]
+  Field: ArtificialLife.Core.MissionKind Caravan = 1
+  Field: ArtificialLife.Core.MissionKind Hunt = 2
+  Field: ArtificialLife.Core.MissionKind Patrol = 0
+  Field: ArtificialLife.Core.MissionKind Raid = 3
+  Field: ArtificialLife.Core.MissionKind Scavenge = 4
+  Field: Int32 value__
 TYPE ArtificialLife.Core.Money : System.ValueType [System.IComparable<ArtificialLife.Core.Money>,System.IEquatable<ArtificialLife.Core.Money>]
   Property: ArtificialLife.Core.Money Zero { get;  }
   Method: Boolean Equals(ArtificialLife.Core.Money)
@@ -1218,3 +1225,106 @@ TYPE ArtificialLife.Core.WarPlan : System.Object [System.IEquatable<ArtificialLi
   Method: System.String ToString()
   Constructor: Void .ctor(Int32, Int32, ArtificialLife.Core.WarGoal, Int32)
   Method: Void Deconstruct(Int32 ByRef, Int32 ByRef, ArtificialLife.Core.WarGoal ByRef, Int32 ByRef)
+TYPE ArtificialLife.Core.WorldEvent : System.Object [System.IEquatable<ArtificialLife.Core.WorldEvent>]
+  Method: ArtificialLife.Core.WorldEvent <Clone>$()
+  Method: Boolean Equals(ArtificialLife.Core.WorldEvent)
+  Method: Boolean Equals(System.Object)
+  Property: System.Double Hour { get; set;  }
+  Property: System.Double X { get; set;  }
+  Property: System.Double Z { get; set;  }
+  Method: Int32 GetHashCode()
+  Property: System.String Kind { get; set;  }
+  Property: System.String Text { get; set;  }
+  Method: System.String ToString()
+  Constructor: Void .ctor(Double, System.String, System.String, Double, Double)
+  Method: Void Deconstruct(Double ByRef, System.String ByRef, System.String ByRef, Double ByRef, Double ByRef)
+TYPE ArtificialLife.Core.WorldFaction : System.Enum [System.IComparable,System.IConvertible,System.IFormattable,System.ISpanFormattable]
+  Field: ArtificialLife.Core.WorldFaction Bandits = 3
+  Field: ArtificialLife.Core.WorldFaction Hunters = 1
+  Field: ArtificialLife.Core.WorldFaction Militia = 2
+  Field: ArtificialLife.Core.WorldFaction Mutants = 4
+  Field: ArtificialLife.Core.WorldFaction Villagers = 0
+  Field: Int32 value__
+TYPE ArtificialLife.Core.WorldLife : System.Object []
+  Method: ArtificialLife.Core.WorldPlace NearestPlace(Double, Double)
+  Method: Boolean Hostile(ArtificialLife.Core.WorldFaction, ArtificialLife.Core.WorldFaction)
+  Property: System.Double CycleHours { get; set;  }
+  Property: System.Double EncounterMetres { get; set;  }
+  Property: System.Double Hours { get;  }
+  Method: Double Relation(ArtificialLife.Core.WorldFaction, ArtificialLife.Core.WorldFaction)
+  Property: System.Double SquadSpeedKmh { get; set;  }
+  Property: System.Int32 MaxSquads { get; set;  }
+  Event: System.Action`1[ArtificialLife.Core.WorldEvent] EventRaised
+  Method: System.Collections.Generic.IEnumerable`1[ArtificialLife.Core.WorldSquad] SquadsNear(Double, Double, Double)
+  Property: System.Collections.Generic.IReadOnlyList<ArtificialLife.Core.WorldEvent> Events { get;  }
+  Property: System.Collections.Generic.IReadOnlyList<ArtificialLife.Core.WorldSquad> Squads { get;  }
+  Property: System.Collections.Generic.List<ArtificialLife.Core.WorldSettlement> Settlements { get;  }
+  Method: System.String Label(ArtificialLife.Core.MissionKind)
+  Method: System.String Label(ArtificialLife.Core.WorldFaction)
+  Method: UInt64 Fingerprint()
+  Constructor: Void .ctor(UInt64, System.Collections.Generic.IEnumerable`1[ArtificialLife.Core.WorldPlace], System.Collections.Generic.IEnumerable`1[ArtificialLife.Core.WorldRoute])
+  Method: Void Fight(ArtificialLife.Core.WorldSquad, ArtificialLife.Core.WorldSquad)
+  Method: Void ReportDamage(ArtificialLife.Core.WorldPerson, Double, ArtificialLife.Core.WorldPerson)
+  Method: Void Step(Double)
+TYPE ArtificialLife.Core.WorldPerson : System.Object []
+  Property: ArtificialLife.Core.EntityId Id { get;  }
+  Property: ArtificialLife.Core.WorldFaction Faction { get;  }
+  Property: System.Boolean Alive { get;  }
+  Property: System.Boolean Wounded { get;  }
+  Property: System.Double Combat { get;  }
+  Property: System.Double Gear { get;  }
+  Property: System.Double Health { get;  }
+  Property: System.Double Strength { get;  }
+  Property: System.Double Survival { get;  }
+  Property: System.Int32 Home { get;  }
+  Property: System.Int64 Bounty { get;  }
+  Property: System.String Name { get;  }
+TYPE ArtificialLife.Core.WorldPlace : System.Object [System.IEquatable<ArtificialLife.Core.WorldPlace>]
+  Method: ArtificialLife.Core.WorldPlace <Clone>$()
+  Method: Boolean Equals(ArtificialLife.Core.WorldPlace)
+  Method: Boolean Equals(System.Object)
+  Property: System.Double X { get; set;  }
+  Property: System.Double Z { get; set;  }
+  Method: Int32 GetHashCode()
+  Property: System.Int32 Id { get; set;  }
+  Property: System.Int32 Tier { get; set;  }
+  Property: System.String Kind { get; set;  }
+  Property: System.String Name { get; set;  }
+  Method: System.String ToString()
+  Constructor: Void .ctor(Int32, System.String, System.String, Double, Double, Int32)
+  Method: Void Deconstruct(Int32 ByRef, System.String ByRef, System.String ByRef, Double ByRef, Double ByRef, Int32 ByRef)
+TYPE ArtificialLife.Core.WorldRoute : System.Object [System.IEquatable<ArtificialLife.Core.WorldRoute>]
+  Method: ArtificialLife.Core.WorldRoute <Clone>$()
+  Method: Boolean Equals(ArtificialLife.Core.WorldRoute)
+  Method: Boolean Equals(System.Object)
+  Property: System.Double Length { get; set;  }
+  Property: System.Int32 From { get; set;  }
+  Method: Int32 GetHashCode()
+  Property: System.Int32 To { get; set;  }
+  Method: System.String ToString()
+  Constructor: Void .ctor(Int32, Int32, Double)
+  Method: Void Deconstruct(Int32 ByRef, Int32 ByRef, Double ByRef)
+TYPE ArtificialLife.Core.WorldSettlement : System.Object []
+  Property: ArtificialLife.Core.WorldFaction Owner { get;  }
+  Property: ArtificialLife.Core.WorldPlace Place { get;  }
+  Property: System.Double Defence { get;  }
+  Property: System.Double Food { get;  }
+  Property: System.Double Wealth { get;  }
+  Property: System.Int32 Capacity { get;  }
+  Property: System.Collections.Generic.List<ArtificialLife.Core.WorldPerson> Residents { get;  }
+TYPE ArtificialLife.Core.WorldSquad : System.Object []
+  Property: ArtificialLife.Core.MissionKind Mission { get;  }
+  Property: ArtificialLife.Core.WorldFaction Faction { get;  }
+  Property: System.Boolean ControlledExternally { get; set;  }
+  Property: System.Boolean Done { get;  }
+  Property: System.Boolean Returning { get;  }
+  Property: System.Double Strength { get;  }
+  Property: System.Double X { get;  }
+  Property: System.Double Z { get;  }
+  Property: System.Int32 Alive { get;  }
+  Property: System.Int32 Id { get;  }
+  Property: System.Int32 NextPlaceId { get;  }
+  Property: System.Int32 Origin { get;  }
+  Property: System.Int32 Target { get;  }
+  Property: System.Collections.Generic.List<ArtificialLife.Core.WorldPerson> Members { get;  }
+  Method: Void SetPosition(Double, Double)
