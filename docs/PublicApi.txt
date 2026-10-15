@@ -189,6 +189,13 @@ TYPE ArtificialLife.Core.ConflictSnapshot : System.Object [System.IEquatable<Art
   Method: System.String ToString()
   Constructor: Void .ctor(Int32, Int32, Int32, Int32, Int32, Boolean)
   Method: Void Deconstruct(Int32 ByRef, Int32 ByRef, Int32 ByRef, Int32 ByRef, Int32 ByRef, Boolean ByRef)
+TYPE ArtificialLife.Core.ConquestPolicy : System.Enum [System.IComparable,System.IConvertible,System.IFormattable,System.ISpanFormattable]
+  Field: ArtificialLife.Core.ConquestPolicy Convert = 2
+  Field: ArtificialLife.Core.ConquestPolicy Execute = 3
+  Field: ArtificialLife.Core.ConquestPolicy Exploit = 1
+  Field: ArtificialLife.Core.ConquestPolicy Integrate = 0
+  Field: ArtificialLife.Core.ConquestPolicy Liberate = 4
+  Field: Int32 value__
 TYPE ArtificialLife.Core.CreditAgreement : System.Object []
   Property: ArtificialLife.Core.EntityId Borrower { get;  }
   Property: ArtificialLife.Core.EntityId Lender { get;  }
@@ -363,6 +370,26 @@ TYPE ArtificialLife.Core.ExtensionState : System.Object [System.IEquatable<Artif
   Method: System.String ToString()
   Constructor: Void .ctor(System.String, Byte[])
   Method: Void Deconstruct(System.String ByRef, Byte[] ByRef)
+TYPE ArtificialLife.Core.FactionProfile : System.Object [System.IEquatable<ArtificialLife.Core.FactionProfile>]
+  Property: ArtificialLife.Core.ConquestPolicy Conquest { get; set;  }
+  Method: ArtificialLife.Core.FactionProfile <Clone>$()
+  Property: ArtificialLife.Core.Ideology Ideology { get; set;  }
+  Property: System.Boolean AlliedWithMonsters { get; set;  }
+  Method: Boolean Equals(ArtificialLife.Core.FactionProfile)
+  Method: Boolean Equals(System.Object)
+  Property: System.Boolean Monsters { get; set;  }
+  Property: System.Boolean Nomadic { get; set;  }
+  Method: Int32 GetHashCode()
+  Property: System.Int32 Id { get; set;  }
+  Property: System.Int32 SwornEnemy { get; set;  }
+  Property: System.Collections.Generic.IReadOnlyList<ArtificialLife.Core.FactionProfile> Default { get;  }
+  Property: System.String LeaderName { get; set;  }
+  Property: System.String Name { get; set;  }
+  Property: System.String Story { get; set;  }
+  Method: System.String ToString()
+  Property: System.String[] PreferredTargets { get; set;  }
+  Constructor: Void .ctor(Int32, System.String, System.String, ArtificialLife.Core.Ideology, ArtificialLife.Core.ConquestPolicy, System.String, System.String[], Boolean, Boolean, Int32, Boolean)
+  Method: Void Deconstruct(Int32 ByRef, System.String ByRef, System.String ByRef, ArtificialLife.Core.Ideology ByRef, ArtificialLife.Core.ConquestPolicy ByRef, System.String ByRef, System.String[] ByRef, Boolean ByRef, Boolean ByRef, Int32 ByRef, Boolean ByRef)
 TYPE ArtificialLife.Core.Firm : System.Object []
   Property: ArtificialLife.Core.EntityId Id { get;  }
   Property: ArtificialLife.Core.EntityId Owner { get;  }
@@ -451,6 +478,34 @@ TYPE ArtificialLife.Core.IdSequence : System.Object []
   Method: ArtificialLife.Core.EntityId Next(System.String)
   Property: System.UInt64 NextValue { get;  }
   Constructor: Void .ctor(UInt64, UInt64)
+TYPE ArtificialLife.Core.Ideology : System.Enum [System.IComparable,System.IConvertible,System.IFormattable,System.ISpanFormattable]
+  Field: ArtificialLife.Core.Ideology Anarchism = 5
+  Field: ArtificialLife.Core.Ideology Authoritarian = 6
+  Field: ArtificialLife.Core.Ideology Capitalism = 0
+  Field: ArtificialLife.Core.Ideology Communism = 2
+  Field: ArtificialLife.Core.Ideology Feudalism = 4
+  Field: ArtificialLife.Core.Ideology Mercantile = 7
+  Field: ArtificialLife.Core.Ideology Monstrous = 8
+  Field: ArtificialLife.Core.Ideology Socialism = 1
+  Field: ArtificialLife.Core.Ideology Theocracy = 3
+  Field: Int32 value__
+TYPE ArtificialLife.Core.IdeologyRules : System.Object [System.IEquatable<ArtificialLife.Core.IdeologyRules>]
+  Method: ArtificialLife.Core.IdeologyRules <Clone>$()
+  Method: ArtificialLife.Core.IdeologyRules For(ArtificialLife.Core.Ideology)
+  Method: Boolean Equals(ArtificialLife.Core.IdeologyRules)
+  Method: Boolean Equals(System.Object)
+  Property: System.Boolean Purges { get; set;  }
+  Property: System.Double Growth { get; set;  }
+  Property: System.Double Production { get; set;  }
+  Property: System.Double Recruit { get; set;  }
+  Property: System.Double Tax { get; set;  }
+  Property: System.Double Trade { get; set;  }
+  Property: System.Double Unrest { get; set;  }
+  Method: Int32 GetHashCode()
+  Method: System.String ToString()
+  Method: System.ValueTuple`2[System.Double,System.Double] Axes(ArtificialLife.Core.Ideology)
+  Constructor: Void .ctor(Double, Double, Double, Double, Double, Double, Boolean)
+  Method: Void Deconstruct(Double ByRef, Double ByRef, Double ByRef, Double ByRef, Double ByRef, Double ByRef, Boolean ByRef)
 TYPE ArtificialLife.Core.IdleAction : System.Object [ArtificialLife.Core.IUtilityAction]
   Method: ArtificialLife.Core.ActionStatus Tick(ArtificialLife.Core.DecisionContext, Double)
   Method: Boolean CanStart(ArtificialLife.Core.DecisionContext)
@@ -487,6 +542,129 @@ TYPE ArtificialLife.Core.Inventory : System.Object []
   Constructor: Void .ctor()
   Method: Void Add(System.String, Int64)
   Method: Void TransferTo(ArtificialLife.Core.Inventory, System.String, Int64)
+TYPE ArtificialLife.Core.IslandCity : System.Object []
+  Property: ArtificialLife.Core.WorldPlace Place { get;  }
+  Property: System.Boolean IsCity { get;  }
+  Property: System.Boolean IsLair { get;  }
+  Property: System.Double Defence { get;  }
+  Property: System.Double Food { get;  }
+  Property: System.Double Unrest { get;  }
+  Property: System.Int32 Capacity { get;  }
+  Property: System.Int32 CapitalOf { get;  }
+  Property: System.Int32 OriginalOwner { get;  }
+  Property: System.Int32 Owner { get;  }
+  Property: System.Int32 PreviousOwner { get;  }
+  Property: System.Collections.Generic.List<ArtificialLife.Core.IslandPerson> Residents { get;  }
+TYPE ArtificialLife.Core.IslandEvent : System.Object [System.IEquatable<ArtificialLife.Core.IslandEvent>]
+  Method: ArtificialLife.Core.IslandEvent <Clone>$()
+  Method: Boolean Equals(ArtificialLife.Core.IslandEvent)
+  Method: Boolean Equals(System.Object)
+  Property: System.Double Hour { get; set;  }
+  Property: System.Double X { get; set;  }
+  Property: System.Double Z { get; set;  }
+  Method: Int32 GetHashCode()
+  Property: System.Int32 Priority { get; set;  }
+  Property: System.String Kind { get; set;  }
+  Property: System.String Text { get; set;  }
+  Method: System.String ToString()
+  Constructor: Void .ctor(Double, System.String, System.String, Double, Double, Int32)
+  Method: Void Deconstruct(Double ByRef, System.String ByRef, System.String ByRef, Double ByRef, Double ByRef, Int32 ByRef)
+TYPE ArtificialLife.Core.IslandFaction : System.Object []
+  Property: ArtificialLife.Core.FactionProfile Profile { get;  }
+  Property: ArtificialLife.Core.IdeologyRules Rules { get;  }
+  Property: System.Boolean Exiled { get;  }
+  Property: System.Boolean Extinct { get;  }
+  Property: System.Double Morale { get;  }
+  Property: System.Double PlayerInfluence { get;  }
+  Property: System.Double Power { get;  }
+  Property: System.Double Treasury { get;  }
+  Property: System.Double WarWeariness { get;  }
+  Property: System.Int32 Cities { get;  }
+  Property: System.Int32 Id { get;  }
+  Property: System.Nullable<System.Int32> VassalOf { get;  }
+TYPE ArtificialLife.Core.IslandLife : System.Object []
+  Property: ArtificialLife.Core.IslandFaction Monsters { get;  }
+  Property: ArtificialLife.Core.IslandFaction Nomads { get;  }
+  Method: ArtificialLife.Core.Stance StanceOf(Int32, Int32)
+  Method: ArtificialLife.Core.WorldPlace NearestPlace(Double, Double)
+  Method: Boolean AtWar(Int32, Int32)
+  Method: Boolean Embargoed(Int32)
+  Property: System.Double CycleHours { get; set;  }
+  Property: System.Double EncounterMetres { get; set;  }
+  Property: System.Double Hours { get;  }
+  Method: Double Relation(Int32, Int32)
+  Property: System.Double SquadSpeedKmh { get; set;  }
+  Property: System.Int32 FairPlace { get;  }
+  Property: System.Int32 MaxSquads { get; set;  }
+  Event: System.Action`1[ArtificialLife.Core.IslandEvent] EventRaised
+  Method: System.Collections.Generic.IEnumerable`1[ArtificialLife.Core.IslandPerson] AllPeople()
+  Property: System.Collections.Generic.IEnumerable<ArtificialLife.Core.IslandPerson> Nemeses { get;  }
+  Method: System.Collections.Generic.IEnumerable`1[ArtificialLife.Core.IslandPerson] Officers(Int32)
+  Property: System.Collections.Generic.IReadOnlyList<ArtificialLife.Core.IslandEvent> Events { get;  }
+  Property: System.Collections.Generic.IReadOnlyList<ArtificialLife.Core.IslandSquad> Squads { get;  }
+  Property: System.Collections.Generic.List<ArtificialLife.Core.IslandCity> Cities { get;  }
+  Property: System.Collections.Generic.List<ArtificialLife.Core.IslandFaction> Factions { get;  }
+  Method: System.String IdeologyLabel(ArtificialLife.Core.Ideology)
+  Method: System.String PolicyLabel(ArtificialLife.Core.ConquestPolicy)
+  Method: System.String RankLabel(ArtificialLife.Core.Rank)
+  Method: UInt64 Fingerprint()
+  Constructor: Void .ctor(UInt64, System.Collections.Generic.IEnumerable`1[ArtificialLife.Core.WorldPlace], System.Collections.Generic.IEnumerable`1[ArtificialLife.Core.WorldRoute], System.Collections.Generic.IReadOnlyList`1[ArtificialLife.Core.FactionProfile], Boolean)
+  Method: Void Fight(ArtificialLife.Core.IslandSquad, ArtificialLife.Core.IslandSquad)
+  Method: Void HelpFaction(Int32, Double)
+  Method: Void RecordPlayerEncounter(ArtificialLife.Core.IslandPerson, Boolean)
+  Method: Void ReportDamage(ArtificialLife.Core.IslandPerson, Double, ArtificialLife.Core.IslandPerson)
+  Method: Void Step(Double)
+TYPE ArtificialLife.Core.IslandMission : System.Enum [System.IComparable,System.IConvertible,System.IFormattable,System.ISpanFormattable]
+  Field: ArtificialLife.Core.IslandMission Hunt = 2
+  Field: ArtificialLife.Core.IslandMission Patrol = 1
+  Field: ArtificialLife.Core.IslandMission Raid = 0
+  Field: ArtificialLife.Core.IslandMission Reconquest = 4
+  Field: ArtificialLife.Core.IslandMission Trade = 3
+  Field: Int32 value__
+TYPE ArtificialLife.Core.IslandPerson : System.Object []
+  Property: ArtificialLife.Core.EntityId Id { get;  }
+  Property: ArtificialLife.Core.Rank Rank { get;  }
+  Property: System.Boolean Alive { get;  }
+  Property: System.Boolean Female { get;  }
+  Property: System.Boolean Officer { get;  }
+  Property: System.Boolean Wounded { get;  }
+  Property: System.Double Ambition { get;  }
+  Property: System.Double Combat { get;  }
+  Property: System.Double Gear { get;  }
+  Property: System.Double Health { get;  }
+  Property: System.Double Loyalty { get;  }
+  Property: System.Double Power { get;  }
+  Property: System.Double SubjugatedUntil { get;  }
+  Property: System.Int32 Faction { get;  }
+  Property: System.Int32 Home { get;  }
+  Property: System.Int32 Kills { get;  }
+  Property: System.Int64 Bounty { get;  }
+  Property: System.Collections.Generic.List<System.String> Memory { get;  }
+  Property: System.Collections.Generic.List<System.String> Traits { get;  }
+  Property: System.String DisplayName { get;  }
+  Property: System.String Name { get;  }
+  Property: System.String Strength_ { get;  }
+  Property: System.String Title { get;  }
+  Property: System.String Weakness { get;  }
+TYPE ArtificialLife.Core.IslandSquad : System.Object []
+  Property: ArtificialLife.Core.IslandMission Mission { get;  }
+  Property: ArtificialLife.Core.IslandPerson Leader { get;  }
+  Property: ArtificialLife.Core.IslandSquad Prey { get;  }
+  Property: System.Boolean ControlledExternally { get; set;  }
+  Property: System.Boolean Done { get;  }
+  Property: System.Boolean Returning { get;  }
+  Property: System.Double Cargo { get;  }
+  Property: System.Double Strength { get;  }
+  Property: System.Double X { get;  }
+  Property: System.Double Z { get;  }
+  Property: System.Int32 Alive { get;  }
+  Property: System.Int32 Faction { get;  }
+  Property: System.Int32 Id { get;  }
+  Property: System.Int32 NextPlaceId { get;  }
+  Property: System.Int32 Origin { get;  }
+  Property: System.Int32 Target { get;  }
+  Property: System.Collections.Generic.List<ArtificialLife.Core.IslandPerson> Members { get;  }
+  Method: Void SetPosition(Double, Double)
 TYPE ArtificialLife.Core.JobOpening : System.Object [System.IEquatable<ArtificialLife.Core.JobOpening>]
   Property: ArtificialLife.Core.EntityId Employer { get; set;  }
   Method: ArtificialLife.Core.JobOpening <Clone>$()
@@ -577,6 +755,22 @@ TYPE ArtificialLife.Core.Money : System.ValueType [System.IComparable<Artificial
   Property: System.Int64 Cents { get;  }
   Method: System.String ToString()
   Constructor: Void .ctor(Int64)
+TYPE ArtificialLife.Core.NameCulture : System.Enum [System.IComparable,System.IConvertible,System.IFormattable,System.ISpanFormattable]
+  Field: ArtificialLife.Core.NameCulture Ash = 1
+  Field: ArtificialLife.Core.NameCulture Common = 6
+  Field: ArtificialLife.Core.NameCulture Free = 3
+  Field: ArtificialLife.Core.NameCulture Iron = 0
+  Field: ArtificialLife.Core.NameCulture Road = 5
+  Field: ArtificialLife.Core.NameCulture Tide = 2
+  Field: ArtificialLife.Core.NameCulture Veil = 4
+  Field: Int32 value__
+TYPE ArtificialLife.Core.NameForge : System.Object []
+  Method: ArtificialLife.Core.NameCulture CultureFor(ArtificialLife.Core.FactionProfile)
+  Method: Int64 Combinations(ArtificialLife.Core.NameCulture)
+  Method: System.String Person(ArtificialLife.Core.NameCulture, Boolean, ArtificialLife.Core.DeterministicRandom ByRef)
+  Method: System.String Place(System.String, ArtificialLife.Core.NameCulture, ArtificialLife.Core.DeterministicRandom ByRef)
+  Method: System.String Title(Boolean, ArtificialLife.Core.DeterministicRandom ByRef)
+  Constructor: Void .ctor()
 TYPE ArtificialLife.Core.Need : System.Object []
   Property: System.Double DecayPerHour { get;  }
   Property: System.Double Urgency { get;  }
@@ -696,6 +890,12 @@ TYPE ArtificialLife.Core.PublicFinance : System.Object []
   Method: Boolean PayBenefit(Int64, ArtificialLife.Core.EntityId)
   Constructor: Void .ctor(ArtificialLife.Core.Economy, ArtificialLife.Core.EntityId, ArtificialLife.Core.SocialEconomicPolicy)
   Method: Void Inherit(Int64, ArtificialLife.Core.EntityId, System.Collections.Generic.IReadOnlyList`1[ArtificialLife.Core.EntityId])
+TYPE ArtificialLife.Core.Rank : System.Enum [System.IComparable,System.IConvertible,System.IFormattable,System.ISpanFormattable]
+  Field: ArtificialLife.Core.Rank Captain = 1
+  Field: ArtificialLife.Core.Rank General = 2
+  Field: ArtificialLife.Core.Rank Leader = 3
+  Field: ArtificialLife.Core.Rank Soldier = 0
+  Field: Int32 value__
 TYPE ArtificialLife.Core.Recipe : System.Object []
   Method: Boolean CanProduce(ArtificialLife.Core.Inventory)
   Property: System.Collections.Generic.IReadOnlyDictionary<System.String,System.Int64> Inputs { get;  }
@@ -1176,6 +1376,14 @@ TYPE ArtificialLife.Core.StableHash : System.Object []
   Method: UInt64 Combine(UInt64, UInt64[])
   Method: UInt64 Mix(UInt64)
   Method: UInt64 Text(System.String)
+TYPE ArtificialLife.Core.Stance : System.Enum [System.IComparable,System.IConvertible,System.IFormattable,System.ISpanFormattable]
+  Field: ArtificialLife.Core.Stance Alliance = 4
+  Field: ArtificialLife.Core.Stance Hostile = 1
+  Field: ArtificialLife.Core.Stance Neutral = 2
+  Field: ArtificialLife.Core.Stance Truce = 3
+  Field: ArtificialLife.Core.Stance Vassal = 5
+  Field: ArtificialLife.Core.Stance War = 0
+  Field: Int32 value__
 TYPE ArtificialLife.Core.Stimulus : System.Object []
   Property: System.Double Strength { get;  }
   Property: System.Nullable<ArtificialLife.Core.EntityId> Source { get;  }
@@ -1233,11 +1441,12 @@ TYPE ArtificialLife.Core.WorldEvent : System.Object [System.IEquatable<Artificia
   Property: System.Double X { get; set;  }
   Property: System.Double Z { get; set;  }
   Method: Int32 GetHashCode()
+  Property: System.Int32 Priority { get; set;  }
   Property: System.String Kind { get; set;  }
   Property: System.String Text { get; set;  }
   Method: System.String ToString()
-  Constructor: Void .ctor(Double, System.String, System.String, Double, Double)
-  Method: Void Deconstruct(Double ByRef, System.String ByRef, System.String ByRef, Double ByRef, Double ByRef)
+  Constructor: Void .ctor(Double, System.String, System.String, Double, Double, Int32)
+  Method: Void Deconstruct(Double ByRef, System.String ByRef, System.String ByRef, Double ByRef, Double ByRef, Int32 ByRef)
 TYPE ArtificialLife.Core.WorldFaction : System.Enum [System.IComparable,System.IConvertible,System.IFormattable,System.ISpanFormattable]
   Field: ArtificialLife.Core.WorldFaction Bandits = 3
   Field: ArtificialLife.Core.WorldFaction Hunters = 1
@@ -1305,6 +1514,7 @@ TYPE ArtificialLife.Core.WorldRoute : System.Object [System.IEquatable<Artificia
   Constructor: Void .ctor(Int32, Int32, Double)
   Method: Void Deconstruct(Int32 ByRef, Int32 ByRef, Double ByRef)
 TYPE ArtificialLife.Core.WorldSettlement : System.Object []
+  Property: ArtificialLife.Core.WorldFaction OriginalOwner { get;  }
   Property: ArtificialLife.Core.WorldFaction Owner { get;  }
   Property: ArtificialLife.Core.WorldPlace Place { get;  }
   Property: System.Double Defence { get;  }
@@ -1315,9 +1525,11 @@ TYPE ArtificialLife.Core.WorldSettlement : System.Object []
 TYPE ArtificialLife.Core.WorldSquad : System.Object []
   Property: ArtificialLife.Core.MissionKind Mission { get;  }
   Property: ArtificialLife.Core.WorldFaction Faction { get;  }
+  Property: ArtificialLife.Core.WorldSquad Prey { get;  }
   Property: System.Boolean ControlledExternally { get; set;  }
   Property: System.Boolean Done { get;  }
   Property: System.Boolean Returning { get;  }
+  Property: System.Double Cargo { get;  }
   Property: System.Double Strength { get;  }
   Property: System.Double X { get;  }
   Property: System.Double Z { get;  }

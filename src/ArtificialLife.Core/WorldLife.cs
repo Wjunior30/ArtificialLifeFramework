@@ -12,7 +12,8 @@ public enum MissionKind { Patrol, Caravan, Hunt, Raid, Scavenge }
 public sealed record WorldPlace(int Id, string Name, string Kind, double X, double Z, int Tier);
 /// <summary>Road between two places; Length in metres.</summary>
 public sealed record WorldRoute(int From, int To, double Length);
-public sealed record WorldEvent(double Hour, string Kind, string Text, double X, double Z);
+/// <summary>Priority 0 = background chatter (scavenging, caches); 1 = news worth the radio.</summary>
+public sealed record WorldEvent(double Hour, string Kind, string Text, double X, double Z, int Priority = 1);
 
 public sealed class WorldPerson
 {
@@ -37,13 +38,16 @@ public sealed class WorldPerson
 
 public sealed class WorldSettlement
 {
-    internal WorldSettlement(WorldPlace place, WorldFaction owner, int capacity) { Place = place; Owner = owner; Capacity = capacity; }
+    internal WorldSettlement(WorldPlace place, WorldFaction owner, int capacity) { Place = place; Owner = owner; OriginalOwner = owner; Capacity = capacity; }
+    /// <summary>Who founded the place; liberated places return to them.</summary>
+    public WorldFaction OriginalOwner { get; }
     public WorldPlace Place { get; }
     public WorldFaction Owner { get; internal set; }
     public int Capacity { get; }
     public List<WorldPerson> Residents { get; } = new();
     public double Food { get; internal set; } = 20;
     public double Wealth { get; internal set; } = 100;
+    internal double NextRaid;
     public double Defence => Residents.Where(r => r.Alive && r.Faction == Owner).Sum(r => r.Strength);
 }
 
@@ -65,6 +69,10 @@ public sealed class WorldSquad
     /// <summary>Next place on the route (-1 when stopped); engines use it to orient bodies.</summary>
     public int NextPlaceId => Path.Count > 0 ? Path[0] : -1;
     internal double EdgeProgress;
+    /// <summary>Food carried by a caravan (stolen if the caravan loses a fight).</summary>
+    public double Cargo { get; internal set; }
+    /// <summary>Hostile squad being chased (interception missions).</summary>
+    public WorldSquad? Prey { get; internal set; }
     public int Alive => Members.Count(m => m.Alive);
     public double Strength => Members.Sum(m => m.Strength);
     public bool Done { get; internal set; }
@@ -99,7 +107,7 @@ public sealed class WorldLife
     /// <summary>World clock period: missions and random events are considered once per cycle, not every step.</summary>
     public double CycleHours { get; set; } = .5;
     public double SquadSpeedKmh { get; set; } = 4;
-    public double EncounterMetres { get; set; } = 300;
+    public double EncounterMetres { get; set; } = 200;
     public List<WorldSettlement> Settlements { get; } = new();
     public IReadOnlyList<WorldSquad> Squads => _squads;
     public IReadOnlyList<WorldEvent> Events => _events;
@@ -149,20 +157,34 @@ public sealed class WorldLife
             var home = Settlements[_random.Next(Settlements.Count)];
             if (_random.NextDouble() < .35) TryMission(home);
         }
-        if (_random.NextDouble() < .08) RandomEvent();
+        if (_random.NextDouble() < .06) RandomEvent();
     }
 
     void TryMission(WorldSettlement home)
     {
         var ready = home.Residents.Where(r => r.Alive && !r.Wounded && r.Faction == home.Owner).ToList();
         if (ready.Count < 3 || _squads.Any(s => s.Origin == home.Place.Id && !s.Done)) return;
-        WorldSettlement? target = null; MissionKind kind;
-        switch (home.Owner)
+        WorldSettlement? target = null; MissionKind kind = MissionKind.Patrol; WorldSquad? prey = null; double cargo = 0;
+        // Interception: militia, hunters and bandits chase a nearby hostile squad (bandits only go for caravans).
+        if (home.Owner is WorldFaction.Militia or WorldFaction.Hunters or WorldFaction.Bandits)
+            prey = _squads.Where(s => !s.Done && s.Alive > 0 && Hostile(home.Owner, s.Faction)
+                    && (home.Owner != WorldFaction.Bandits || s.Mission == MissionKind.Caravan)
+                    && (home.Owner != WorldFaction.Hunters || s.Faction == WorldFaction.Mutants)
+                    && Distance(home.Place, s.X, s.Z) < 3000)
+                .OrderBy(s => Distance(home.Place, s.X, s.Z)).FirstOrDefault();
+        if (prey is not null) { kind = home.Owner == WorldFaction.Bandits ? MissionKind.Raid : MissionKind.Hunt; target = home; }
+        else if (home.Owner is not WorldFaction.Mutants && home.Food < 15)
+        {   // Hungry places (any faction but mutants) buy food where there is most.
+            kind = MissionKind.Caravan; target = Settlements.Where(s => s != home && !Hostile(home.Owner, s.Owner) && s.Food > 30).OrderByDescending(s => s.Food).FirstOrDefault();
+        }
+        else switch (home.Owner)
         {
             case WorldFaction.Bandits:
                 kind = MissionKind.Raid; // the weakest of the three closest hostile places
                 target = Settlements.Where(s => s != home && Hostile(WorldFaction.Bandits, s.Owner) && s.Owner != WorldFaction.Mutants).OrderBy(s => Distance(home.Place, s.Place)).Take(3).OrderBy(s => s.Defence * (1 + s.Place.Tier * .5)).FirstOrDefault(); break;
             case WorldFaction.Mutants:
+                if (MutantSquads >= 2 || Hours < home.NextRaid) return; // the undead come in waves, not floods
+                home.NextRaid = Hours + 18;
                 kind = MissionKind.Raid; target = Nearest(home, s => s.Owner != WorldFaction.Mutants); break;
             case WorldFaction.Militia:
                 // Retake places held by bandits first; otherwise patrol friendly ground.
@@ -172,19 +194,25 @@ public sealed class WorldLife
             case WorldFaction.Hunters:
                 kind = MissionKind.Hunt; target = Nearest(home, s => s.Owner == WorldFaction.Mutants) ?? Pick(s => s != home); break;
             default:
-                if (home.Food < 15) { kind = MissionKind.Caravan; target = Settlements.Where(s => s != home && !Hostile(home.Owner, s.Owner)).OrderByDescending(s => s.Food).FirstOrDefault(); }
-                else { kind = MissionKind.Scavenge; target = Pick(s => s != home && s.Place.Kind is "Ruins" or "Mine"); }
+                if (home.Food > 60)
+                {   // Surplus: deliver food to the hungriest friendly place.
+                    kind = MissionKind.Caravan; target = Settlements.Where(s => s != home && !Hostile(home.Owner, s.Owner) && s.Owner != WorldFaction.Mutants).OrderBy(s => s.Food).FirstOrDefault();
+                    if (target is not null && target.Food < 40) { cargo = 25; home.Food -= cargo; } else target = null;
+                }
+                if (target is null && _squads.Count(s => s.Mission == MissionKind.Scavenge && !s.Done) < 2 && _random.NextDouble() < .4)
+                { kind = MissionKind.Scavenge; target = Pick(s => s != home && s.Place.Kind is "Ruins" or "Mine"); }
                 break;
         }
         if (target is null) return;
         var path = ShortestPath(home.Place.Id, target.Place.Id);
         if (path is null) return;
-        var squad = new WorldSquad(++_squadIds, home.Owner, kind, home.Place.Id, target.Place.Id) { X = home.Place.X, Z = home.Place.Z };
-        squad.Path.AddRange(path);
+        var squad = new WorldSquad(++_squadIds, home.Owner, kind, home.Place.Id, target.Place.Id) { X = home.Place.X, Z = home.Place.Z, Prey = prey, Cargo = cargo };
+        if (prey is null) squad.Path.AddRange(path);
         int size = Math.Min(ready.Count, 2 + _random.Next(4));
         foreach (var person in ready.OrderByDescending(p => p.Combat).Take(size)) { squad.Members.Add(person); home.Residents.Remove(person); }
         _squads.Add(squad);
-        Raise("mission", $"{Label(home.Owner)} de {home.Place.Name} saem em {Label(kind)} rumo a {target.Place.Name}.", squad.X, squad.Z);
+        if (prey is not null) Raise("intercept", $"{Label(home.Owner)} de {home.Place.Name} saem para interceptar {Label(prey.Faction)} perto de {NearestPlace(prey.X, prey.Z).Name}.", squad.X, squad.Z);
+        else Raise("mission", $"{Label(home.Owner)} de {home.Place.Name} saem em {Label(kind)} rumo a {target.Place.Name}.", squad.X, squad.Z, kind is MissionKind.Scavenge or MissionKind.Patrol ? 0 : 1);
     }
 
     WorldSettlement? Nearest(WorldSettlement from, Func<WorldSettlement, bool> filter) => Settlements.Where(s => s != from && filter(s))
@@ -216,9 +244,21 @@ public sealed class WorldLife
 
     WorldPlace Place(int id) => _places.First(p => p.Id == id);
 
+    static double Distance(WorldPlace a, double x, double z) => Math.Sqrt((a.X - x) * (a.X - x) + (a.Z - z) * (a.Z - z));
+
     void Travel(WorldSquad squad, double hours)
     {
         double metres = SquadSpeedKmh * 1000 * hours;
+        if (squad.Prey is not null && !squad.Returning)
+        {
+            // Chase across country; give up when the prey is gone or too far from home.
+            var prey = squad.Prey;
+            if (prey.Done || prey.Alive == 0 || Distance(Place(squad.Origin), prey.X, prey.Z) > 4500) { squad.Prey = null; GoHome(squad); return; }
+            double dx = prey.X - squad.X, dz = prey.Z - squad.Z, left = Math.Sqrt(dx * dx + dz * dz);
+            double move = Math.Min(left, metres * 1.2); // a hunting party moves a little faster than a travelling group
+            if (left > 1) { squad.X += dx / left * move; squad.Z += dz / left * move; }
+            return;
+        }
         while (metres > 0 && squad.Path.Count > 0)
         {
             var next = Place(squad.Path[0]);
@@ -243,7 +283,7 @@ public sealed class WorldLife
                 {
                     // Mutants kill and plunder but never hold a settlement.
                     int before = place.Residents.Count(r => r.Alive);
-                    foreach (var r in place.Residents.Where(r => r.Alive).Take(2 + _random.Next(3))) Wound(r, .5 + _random.NextDouble() * .7, null);
+                    foreach (var r in place.Residents.Where(r => r.Alive).Take(1 + _random.Next(2))) Wound(r, .4 + _random.NextDouble() * .5, null);
                     place.Food *= .6;
                     Raise("attack", $"Mortos-vivos atacaram {place.Place.Name}: {before - place.Residents.Count(r => r.Alive)} mortos.", place.Place.X, place.Place.Z);
                     break;
@@ -251,8 +291,14 @@ public sealed class WorldLife
                 if (attack > defence)
                 {
                     foreach (var r in place.Residents.Where(r => r.Alive && r.Faction == place.Owner)) Wound(r, .6 + _random.NextDouble() * .6, squad.Members.FirstOrDefault(m => m.Alive));
-                    Raise("capture", $"{Label(squad.Faction)} tomaram {place.Place.Name} de {Label(place.Owner)}!", place.Place.X, place.Place.Z);
                     ChangeRelation(squad.Faction, place.Owner, -.2);
+                    if (squad.Faction == WorldFaction.Militia && place.OriginalOwner == WorldFaction.Villagers)
+                    {   // Liberation: the militia hands the place back to its villagers and goes home.
+                        Raise("liberation", $"Milícia libertou {place.Place.Name} dos {Label(place.Owner)}; os aldeões voltam.", place.Place.X, place.Place.Z);
+                        place.Owner = WorldFaction.Villagers; place.Residents.RemoveAll(r => !r.Alive || r.Faction != WorldFaction.Villagers);
+                        break;
+                    }
+                    Raise("capture", $"{Label(squad.Faction)} tomaram {place.Place.Name} de {Label(place.Owner)}!", place.Place.X, place.Place.Z);
                     place.Owner = squad.Faction; place.Residents.RemoveAll(r => !r.Alive || r.Faction != squad.Faction);
                     foreach (var m in squad.Members.Where(m => m.Alive)) { m.Home = place.Place.Id; place.Residents.Add(m); }
                     squad.Done = true; return;
@@ -261,14 +307,25 @@ public sealed class WorldLife
                 foreach (var r in place.Residents.Where(r => r.Alive).Take(_random.Next(3))) Wound(r, .4 + _random.NextDouble() * .7, squad.Members.FirstOrDefault(m => m.Alive));
                 Raise("raid", $"{place.Place.Name} repeliu o ataque de {Label(squad.Faction)}.", place.Place.X, place.Place.Z);
                 break;
+            case MissionKind.Hunt when place.Owner == WorldFaction.Mutants:
+                // Hunters thin out the nest; they never hold it.
+                int culled = 0; Train(squad.Members, 2);
+                foreach (var r in place.Residents.Where(r => r.Alive).Take(1 + (int)(squad.Strength / 1.2))) { Wound(r, .6 + _random.NextDouble() * .6, squad.Members.FirstOrDefault(m => m.Alive)); if (!r.Alive) culled++; }
+                foreach (var m in squad.Members.Where(m => m.Alive).Take(_random.Next(2))) Wound(m, .2 + _random.NextDouble() * .4, null);
+                Raise("hunt", $"Caçadores abateram {culled} mortos-vivos em {place.Place.Name}.", place.Place.X, place.Place.Z);
+                break;
+            case MissionKind.Caravan when squad.Cargo > 0:
+                place.Food += squad.Cargo; place.Wealth -= squad.Cargo; Settlements.First(s => s.Place.Id == squad.Origin).Wealth += squad.Cargo * 2;
+                Raise("trade", $"Caravana de {Place(squad.Origin).Name} entregou {squad.Cargo:0} de comida em {place.Place.Name}.", place.Place.X, place.Place.Z);
+                squad.Cargo = 0;
+                break;
             case MissionKind.Caravan:
-                double cargo = Math.Min(20, place.Food * .4); place.Food -= cargo; place.Wealth += cargo * 2;
-                Settlements.First(s => s.Place.Id == squad.Origin).Food += cargo;
-                Raise("trade", $"Caravana de {Place(squad.Origin).Name} comprou {cargo:0} de comida em {place.Place.Name}.", place.Place.X, place.Place.Z);
+                double bought = Math.Min(25, place.Food * .4); place.Food -= bought; place.Wealth += bought * 2; squad.Cargo = bought; // carried home
+                Raise("trade", $"Caravana de {Place(squad.Origin).Name} comprou {bought:0} de comida em {place.Place.Name}.", place.Place.X, place.Place.Z);
                 break;
             case MissionKind.Scavenge:
                 foreach (var m in squad.Members.Where(m => m.Alive)) m.Gear = Math.Min(1, m.Gear + _random.NextDouble() * .1);
-                Raise("loot", $"Grupo de {Place(squad.Origin).Name} vasculhou {place.Place.Name}.", place.Place.X, place.Place.Z);
+                Raise("loot", $"Grupo de {Place(squad.Origin).Name} vasculhou {place.Place.Name}.", place.Place.X, place.Place.Z, 0);
                 break;
         }
         GoHome(squad);
@@ -285,7 +342,10 @@ public sealed class WorldLife
 
     void Disband(WorldSquad squad, WorldSettlement home)
     {
-        foreach (var m in squad.Members.Where(m => m.Alive)) home.Residents.Add(m);
+        // Back home: cargo goes to the stores; members beyond capacity drift away (keeps mutant nests bounded).
+        home.Food += squad.Cargo; squad.Cargo = 0;
+        foreach (var m in squad.Members.Where(m => m.Alive))
+            if (home.Residents.Count < home.Capacity * 1.25) home.Residents.Add(m);
         squad.Done = true;
     }
 
@@ -314,6 +374,8 @@ public sealed class WorldLife
         }
         var (winner, loser) = a.Strength >= b.Strength ? (a, b) : (b, a);
         foreach (var m in winner.Members.Where(m => m.Alive)) m.Gear = Math.Min(1, m.Gear + .03);
+        if (loser.Cargo > 0) { winner.Cargo += loser.Cargo; Raise("ambush", $"{Label(winner.Faction)} roubaram a carga da caravana de {Place(loser.Origin).Name}.", a.X, a.Z); loser.Cargo = 0; }
+        if (winner.Prey == loser) winner.Prey = null;
         ChangeRelation(a.Faction, b.Faction, -.05);
         Raise("fight", $"{Label(winner.Faction)} venceram {Label(loser.Faction)} ({loser.Members.Count(m => !m.Alive)} mortos) perto de {NearestPlace(a.X, a.Z).Name}.", a.X, a.Z);
         if (loser.Alive == 0) loser.Done = true; else GoHome(loser);
@@ -341,16 +403,27 @@ public sealed class WorldLife
         if (victim.Faction is WorldFaction.Villagers or WorldFaction.Militia && attacker.Faction != WorldFaction.Mutants) attacker.Bounty += 100;
     }
 
+    int MutantSquads => _squads.Count(s => !s.Done && s.Faction == WorldFaction.Mutants);
+
     void Upkeep(WorldSettlement s, double hours)
     {
-        double production = s.Place.Kind switch { "Farm" => 3, "Fishing" or "Port" => 2, "HuntersCamp" => 1.5, "Village" => 1, "Town" => .6, _ => .3 };
+        double production = s.Place.Kind switch { "Farm" => 3, "Fishing" or "Port" => 2, "HuntersCamp" => 1.5, "Village" => 1, "Town" => .8, _ => .45 };
         if (s.Owner == WorldFaction.Mutants) production = 0;
-        s.Food = Math.Max(0, s.Food + (production - .05 * s.Residents.Count(r => r.Alive)) * hours);
+        s.Food = Math.Max(0, s.Food + (production - .04 * s.Residents.Count(r => r.Alive)) * hours);
         foreach (var r in s.Residents.Where(r => r.Alive)) r.Health = Math.Min(1, r.Health + (s.Food > 0 ? .02 : .005) * hours); // rest heals
         s.Residents.RemoveAll(r => !r.Alive);
         // Slow regrowth: newcomers arrive while there is food (mutant nests always spawn).
-        double chance = hours * (s.Owner == WorldFaction.Mutants ? .08 : s.Food > 10 ? .03 : 0);
+        double chance = hours * (s.Owner == WorldFaction.Mutants ? .08 : s.Food > 10 ? .045 : 0);
         if (s.Residents.Count < s.Capacity && _random.NextDouble() < chance) s.Residents.Add(Born(s));
+        if (s.Owner == WorldFaction.Mutants) return;
+        // An emptied place taken by others returns to its founders; nearly empty places draw migrants from a crowded friendly one.
+        if (s.Residents.Count == 0 && s.Owner != s.OriginalOwner && s.OriginalOwner != WorldFaction.Mutants) { s.Owner = s.OriginalOwner; Raise("resettle", $"{s.Place.Name} foi reocupada por {Label(s.Owner)}.", s.Place.X, s.Place.Z); }
+        if (s.Residents.Count < s.Capacity / 3 && _random.NextDouble() < hours * .05)
+        {
+            var donor = Settlements.Where(o => o != s && o.Owner == s.Owner && o.Residents.Count(r => r.Alive) > o.Capacity / 2).OrderBy(o => Distance(o.Place, s.Place)).FirstOrDefault();
+            var migrant = donor?.Residents.FirstOrDefault(r => r.Alive && !r.Wounded);
+            if (migrant != null) { donor!.Residents.Remove(migrant); migrant.Home = s.Place.Id; s.Residents.Add(migrant); if (s.Food < 10) s.Food += 5; }
+        }
     }
 
     void RandomEvent()
@@ -359,7 +432,7 @@ public sealed class WorldLife
         if (route is null) return;
         WorldPlace a = Place(route.From), b = Place(route.To); double t = _random.NextDouble();
         double x = a.X + (b.X - a.X) * t, z = a.Z + (b.Z - a.Z) * t;
-        if (_random.NextDouble() < .6 && _squads.Count < MaxSquads)
+        if (_random.NextDouble() < .4 && _squads.Count < MaxSquads && MutantSquads < 2)
         {
             var nest = Settlements.FirstOrDefault(s => s.Owner == WorldFaction.Mutants);
             if (nest is null) return;
@@ -372,7 +445,7 @@ public sealed class WorldLife
         {
             var finder = Settlements.Where(s => s.Owner != WorldFaction.Mutants).OrderBy(s => (s.Place.X - x) * (s.Place.X - x) + (s.Place.Z - z) * (s.Place.Z - z)).FirstOrDefault();
             if (finder is null) return;
-            finder.Wealth += 50; Raise("cache", $"Esconderijo encontrado perto de {finder.Place.Name}: +50 de riqueza.", x, z);
+            finder.Wealth += 50; Raise("cache", $"Esconderijo encontrado perto de {finder.Place.Name}: +50 de riqueza.", x, z, 0);
         }
     }
 
@@ -389,9 +462,9 @@ public sealed class WorldLife
         _relations[(int)a, (int)b] = _relations[(int)b, (int)a] = v;
     }
 
-    void Raise(string kind, string text, double x, double z)
+    void Raise(string kind, string text, double x, double z, int priority = 1)
     {
-        var e = new WorldEvent(Math.Round(Hours, 2), kind, text, x, z);
+        var e = new WorldEvent(Math.Round(Hours, 2), kind, text, x, z, priority);
         _events.Add(e); if (_events.Count > 300) _events.RemoveAt(0);
         EventRaised?.Invoke(e);
     }
