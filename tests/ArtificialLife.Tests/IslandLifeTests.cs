@@ -146,3 +146,112 @@ public sealed class OtherWorldTests
         Assert.Equal(life.Fingerprint(), state.Fingerprint());
     }
 }
+
+public sealed class LongRunTests
+{
+    // A year with no player: nobody is ever listed twice (exiles once duplicated people from finished squads),
+    // and dead factions can come back through revolts so the island never freezes under one ruler.
+    [Fact]
+    public void YearWithoutPlayerKeepsPeopleUniqueAndFactionsCanReturn()
+    {
+        var kinds = typeof(IslandLifeTests).GetMethod("Create", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)!;
+        int rebirths = 0;
+        foreach (ulong seed in new ulong[] { 2, 5, 8 })
+        {
+            var life = (IslandLife)kinds.Invoke(null, new object[] { seed })!;
+            life.EventRaised += e => { if (e.Kind == "rebirth") rebirths++; };
+            for (int d = 0; d < 365; d++)
+            {
+                for (int h = 0; h < 96; h++) life.Step(.25);
+                var people = life.Cities.SelectMany(c => c.Residents).ToList();
+                Assert.Equal(people.Count, people.Distinct().Count());
+            }
+            Assert.True(life.Factions.Count(f => !f.Extinct && !f.Profile.Nomadic && !f.Profile.Monsters) >= 2, $"seed {seed}: one ruler left");
+        }
+        Assert.True(rebirths > 0);
+    }
+}
+
+public sealed class YearBacktest
+{
+    readonly ITestOutputHelper output;
+    public YearBacktest(ITestOutputHelper output) => this.output = output;
+
+    // Measures what a player would feel over a year: churn of factions, how long wars last and how unequal wealth gets.
+    [Fact]
+    public void YearMetricsStayPlayable()
+    {
+        var create = typeof(IslandLifeTests).GetMethod("Create", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)!;
+        foreach (ulong seed in new ulong[] { 2, 5, 8, 13, 21 })
+        {
+            var life = (IslandLife)create.Invoke(null, new object[] { seed })!;
+            var counts = new Dictionary<string, int>();
+            var warStart = new Dictionary<(int, int), double>();
+            var wars = new List<double>();
+            life.EventRaised += e =>
+            {
+                counts[e.Kind] = counts.GetValueOrDefault(e.Kind) + 1;
+                var key = (Math.Min(e.FactionA, e.FactionB), Math.Max(e.FactionA, e.FactionB));
+                if (e.Kind == "war") warStart.TryAdd(key, e.Hour);
+                if (e.Kind is "truce" or "pact" && warStart.Remove(key, out var start)) wars.Add((e.Hour - start) / 24);
+            };
+            for (int h = 0; h < 365 * 96; h++) life.Step(.25);
+            var alive = life.Factions.Where(f => !f.Extinct && !f.Profile.Nomadic && !f.Profile.Monsters).ToList();
+            var cash = alive.Select(f => Math.Max(0, f.Treasury)).OrderBy(t => t).ToArray();
+            double gini = cash.Length < 2 || cash.Sum() <= 0 ? 0 : cash.Select((t, i) => (2 * (i + 1) - cash.Length - 1) * t).Sum() / (cash.Length * cash.Sum());
+            int extinct = counts.GetValueOrDefault("extinct"), reborn = counts.GetValueOrDefault("rebirth");
+            output.WriteLine($"seed {seed}: extinct {extinct}, rebirth {reborn}, alive {alive.Count}, wars ended {wars.Count} median {(wars.Count > 0 ? wars.OrderBy(w => w).ElementAt(wars.Count / 2) : 0):F0}d, open {warStart.Count}, gini {gini:F2}, robbery {counts.GetValueOrDefault("robbery")}, trade {counts.GetValueOrDefault("trade")}, nemesis {counts.GetValueOrDefault("nemesis")}");
+            Assert.True(alive.Count >= 2, $"seed {seed}: one ruler left");
+        }
+    }
+}
+
+public sealed class OutpostTests
+{
+    // A city only falls by assault once its owner holds none of the posts around it; posts survive save/load.
+    [Fact]
+    public void CitiesFallOnlyAfterTheirPosts()
+    {
+        var create = typeof(IslandLifeTests).GetMethod("Create", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)!;
+        int captures = 0, posts = 0;
+        foreach (ulong seed in new ulong[] { 3, 7 })
+        {
+            var life = (IslandLife)create.Invoke(null, new object[] { seed })!;
+            Assert.All(life.Cities.Where(c => c.IsCity && !c.IsLair), c => Assert.Equal(3, c.Outposts.Count(o => o.Owner == c.Owner)));
+            var held = new Dictionary<int, bool>();
+            life.EventRaised += e =>
+            {
+                if (e.Kind == "outpost") { posts++; var p = life.Cities.First(c => c.Place.Id == e.Place); held[e.Place] = p.Outposts.Any(o => o.Owner == p.Owner); }
+                if (e.Kind != "capture") return;
+                var city = life.Cities.First(c => c.Place.Id == e.Place);
+                // Exiles retaking their own city skip the ring; every other conquest needed it.
+                if (city.OriginalOwner != e.FactionA) { Assert.False(held[e.Place], $"{city.Place.Name} fell with posts still held"); captures++; }
+            };
+            for (int h = 0; h < 120 * 96; h++)
+            {
+                foreach (var c in life.Cities) held[c.Place.Id] = c.Outposts.Any(o => o.Owner == c.Owner);
+                life.Step(.25);
+            }
+            var copy = IslandLife.Load(life.Save());
+            Assert.Equal(life.Fingerprint(), copy.Fingerprint());
+            for (int h = 0; h < 10 * 96; h++) { life.Step(.25); copy.Step(.25); }
+            Assert.Equal(life.Fingerprint(), copy.Fingerprint());
+        }
+        Assert.True(captures > 0 && posts > captures, $"captures {captures}, post fights {posts}");
+    }
+}
+
+public sealed class PlayerOutpostTests
+{
+    [Fact]
+    public void PlayerCanHandAPostToAFaction()
+    {
+        var create = typeof(IslandLifeTests).GetMethod("Create", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)!;
+        var life = (IslandLife)create.Invoke(null, new object[] { 4UL })!;
+        var city = life.Cities.First(c => c.Outposts.Count > 0);
+        int other = life.Factions.First(f => f.Id != city.Owner && !f.Profile.Monsters && !f.Profile.Nomadic).Id;
+        Assert.True(life.PlayerTakeOutpost(city.Place.Id, 0, other));
+        Assert.Equal(other, city.Outposts[0].Owner);
+        Assert.False(life.PlayerTakeOutpost(city.Place.Id, 0, other)); // already theirs
+    }
+}

@@ -15,7 +15,7 @@ public sealed class IslandLifeState
     public PlaceState[] Places = Array.Empty<PlaceState>();
     public RouteState[] Routes = Array.Empty<RouteState>();
     /// <summary>Faction-by-faction matrices flattened row by row (index a * count + b).</summary>
-    public double[] Relations = Array.Empty<double>(), TruceUntil = Array.Empty<double>(), LastPact = Array.Empty<double>();
+    public double[] Relations = Array.Empty<double>(), TruceUntil = Array.Empty<double>(), LastPact = Array.Empty<double>(), WarSince = Array.Empty<double>();
     public bool[] AtWar = Array.Empty<bool>();
     public double[] EmbargoUntil = Array.Empty<double>();
     public FactionState[] Factions = Array.Empty<FactionState>();
@@ -28,7 +28,7 @@ public sealed class IslandLifeState
 
 [Serializable] public sealed class PlaceState { public int Id, Tier; public string Name = "", Kind = ""; public double X, Z; }
 [Serializable] public sealed class RouteState { public int From, To; public double Length; }
-[Serializable] public sealed class FactionState { public double Treasury, Morale, WarWeariness, PlayerInfluence, Power; public int VassalOf = -1, Cities; public bool Extinct, Exiled; }
+[Serializable] public sealed class FactionState { public double Treasury, Morale, WarWeariness, PlayerInfluence, Power, ExtinctSince = -1; public int VassalOf = -1, Cities; public bool Extinct, Exiled; }
 
 [Serializable]
 public sealed class CityState
@@ -36,6 +36,8 @@ public sealed class CityState
     public int Place, Owner, OriginalOwner, PreviousOwner, CapitalOf, Capacity;
     public bool Lair;
     public double Food, Unrest, NextRaid, HuntedUntil, CalmUntil, NextPurge;
+    public int[] OutpostOwners = Array.Empty<int>();
+    public double[] OutpostGarrisons = Array.Empty<double>(), OutpostX = Array.Empty<double>(), OutpostZ = Array.Empty<double>();
 }
 
 [Serializable]
@@ -85,18 +87,19 @@ public sealed partial class IslandLife
             LastCoalition = _lastCoalition, SquadIds = _squadIds, FairPlace = FairPlace, Config = Config,
             Places = _places.Select(p => new PlaceState { Id = p.Id, Name = p.Name, Kind = p.Kind, X = p.X, Z = p.Z, Tier = p.Tier }).ToArray(),
             Routes = _routes.Select(r => new RouteState { From = r.From, To = r.To, Length = r.Length }).ToArray(),
-            Relations = Flatten(_relations, n), TruceUntil = Flatten(_truceUntil, n), LastPact = Flatten(_lastPact, n),
+            Relations = Flatten(_relations, n), TruceUntil = Flatten(_truceUntil, n), LastPact = Flatten(_lastPact, n), WarSince = Flatten(_warSince, n),
             AtWar = Enumerable.Range(0, n * n).Select(i => _atWar[i / n, i % n]).ToArray(),
             EmbargoUntil = (double[])_embargoUntil.Clone(),
             Factions = Factions.Select(f => new FactionState
             {
-                Treasury = f.Treasury, Morale = f.Morale, WarWeariness = f.WarWeariness, PlayerInfluence = f.PlayerInfluence, Power = f.Power,
+                Treasury = f.Treasury, Morale = f.Morale, WarWeariness = f.WarWeariness, PlayerInfluence = f.PlayerInfluence, Power = f.Power, ExtinctSince = f.ExtinctSince,
                 VassalOf = f.VassalOf ?? -1, Cities = f.Cities, Extinct = f.Extinct, Exiled = f.Exiled,
             }).ToArray(),
             Cities = Cities.Select(c => new CityState
             {
                 Place = c.Place.Id, Owner = c.Owner, OriginalOwner = c.OriginalOwner, PreviousOwner = c.PreviousOwner, CapitalOf = c.CapitalOf, Capacity = c.Capacity, Lair = c.IsLair,
                 Food = c.Food, Unrest = c.Unrest, NextRaid = c.NextRaid, HuntedUntil = c.HuntedUntil, CalmUntil = c.CalmUntil, NextPurge = c.NextPurge,
+                OutpostOwners = c.Outposts.Select(o => o.Owner).ToArray(), OutpostGarrisons = c.Outposts.Select(o => o.Garrison).ToArray(), OutpostX = c.Outposts.Select(o => o.X).ToArray(), OutpostZ = c.Outposts.Select(o => o.Z).ToArray(),
             }).ToArray(),
             People = Cities.SelectMany((c, i) => c.Residents.Select(p => (p, i))).Concat(_squads.SelectMany(q => q.Members.Select(p => (p, -1))))
                 .GroupBy(x => x.p).Select(g => SavePerson(g.Key, g.First().Item2)).ToArray(),
@@ -129,12 +132,13 @@ public sealed partial class IslandLife
         Factions = Config.Factions.OrderBy(f => f.Id).Select(f => new IslandFaction(f.ToProfile())).ToList();
         int n = Factions.Count;
         _relations = Unflatten(s.Relations, n); _truceUntil = Unflatten(s.TruceUntil, n); _lastPact = Unflatten(s.LastPact, n);
+        _warSince = s.WarSince.Length == n * n ? Unflatten(s.WarSince, n) : new double[n, n];
         _atWar = new bool[n, n]; for (int i = 0; i < n * n; i++) _atWar[i / n, i % n] = s.AtWar[i];
         _embargoUntil = (double[])s.EmbargoUntil.Clone();
         for (int i = 0; i < n; i++)
         {
             var f = Factions[i]; var d = s.Factions[i];
-            f.Treasury = d.Treasury; f.Morale = d.Morale; f.WarWeariness = d.WarWeariness; f.PlayerInfluence = d.PlayerInfluence; f.Power = d.Power;
+            f.Treasury = d.Treasury; f.Morale = d.Morale; f.WarWeariness = d.WarWeariness; f.PlayerInfluence = d.PlayerInfluence; f.Power = d.Power; f.ExtinctSince = d.ExtinctSince;
             f.VassalOf = d.VassalOf >= 0 ? d.VassalOf : null; f.Cities = d.Cities; f.Extinct = d.Extinct; f.Exiled = d.Exiled;
         }
         for (int i = 0; i < s.Cities.Length; i++)
@@ -145,6 +149,11 @@ public sealed partial class IslandLife
                 OriginalOwner = d.OriginalOwner, PreviousOwner = d.PreviousOwner, CapitalOf = d.CapitalOf, IsLair = d.Lair, Food = d.Food, Unrest = d.Unrest,
                 NextRaid = d.NextRaid, HuntedUntil = d.HuntedUntil, CalmUntil = d.CalmUntil, NextPurge = d.NextPurge, Now = Hours, SubjugatedPower = B.SubjugatedPower,
             });
+            var city = Cities[^1];
+            CreateOutposts(city, B.OutpostGarrison); // saves from before posts get a full ring
+            for (int k = 0; k < city.Outposts.Count && k < d.OutpostOwners.Length; k++)
+            { city.Outposts[k].Owner = d.OutpostOwners[k]; city.Outposts[k].Garrison = d.OutpostGarrisons[k]; if (k < d.OutpostX.Length) { city.Outposts[k].X = d.OutpostX[k]; city.Outposts[k].Z = d.OutpostZ[k]; } }
+            if (d.OutpostOwners.Length > 0 && d.OutpostOwners.Length < city.Outposts.Count) city.Outposts.RemoveRange(d.OutpostOwners.Length, city.Outposts.Count - d.OutpostOwners.Length);
         }
         var squads = new Dictionary<int, IslandSquad>();
         foreach (var d in s.Squads)

@@ -102,6 +102,19 @@ public sealed class IslandCity
     internal double HuntedUntil, CalmUntil, NextPurge;
     internal double Now, SubjugatedPower = .3;
     public double Defence => Residents.Where(r => r.Alive && r.Faction == Owner).Sum(r => r.Power * (r.SubjugatedUntil > Now ? SubjugatedPower : 1)) * (1 + Place.Tier * .5 + (CapitalOf >= 0 ? .5 : 0));
+    /// <summary>Posts around the city. While any belongs to the owner, attackers must take them before besieging the city.</summary>
+    public List<IslandOutpost> Outposts { get; } = new();
+}
+
+/// <summary>A post on the approach to a city (watchtower, antenna... the game decides what it looks like).</summary>
+public sealed class IslandOutpost
+{
+    internal IslandOutpost(int index, double x, double z, int owner, double garrison) { Index = index; X = x; Z = z; Owner = owner; Garrison = garrison; }
+    public int Index { get; }
+    public double X { get; internal set; }
+    public double Z { get; internal set; }
+    public int Owner { get; internal set; }
+    public double Garrison { get; internal set; }
 }
 
 public sealed class IslandFaction
@@ -117,6 +130,8 @@ public sealed class IslandFaction
     public double PlayerInfluence { get; internal set; }
     public int? VassalOf { get; internal set; }
     public bool Extinct { get; internal set; }
+    /// <summary>Hour the faction died out (-1 while it exists); after BalanceData.RebirthDays a revolt in one of its old cities can bring it back.</summary>
+    public double ExtinctSince { get; internal set; } = -1;
     public bool Exiled { get; internal set; }
     public double Power { get; internal set; }
     public int Cities { get; internal set; }
@@ -155,7 +170,7 @@ public sealed partial class IslandLife
     static readonly string[] StrengthPool = { "Mestre do arco", "Pele de ferro", "Implacável", "Estrategista", "Veloz" };
     static readonly string[] WeaknessPool = { "Medo de fogo", "Foge se o líder cair", "Arrogante", "Bebe demais", "Lento" };
 
-    readonly WorldPlace[] _places; readonly WorldRoute[] _routes; readonly double[,] _relations; readonly double[,] _truceUntil; readonly double[,] _lastPact;
+    readonly WorldPlace[] _places; readonly WorldRoute[] _routes; readonly double[,] _relations; readonly double[,] _truceUntil; readonly double[,] _lastPact; readonly double[,] _warSince;
     readonly NameForge _names = new();
     readonly ulong _seed; readonly IdSequence _ids; DeterministicRandom _random; int _squadIds; double _cycleClock, _dayClock;
     readonly List<IslandSquad> _squads = new(); readonly List<IslandEvent> _events = new();
@@ -184,7 +199,7 @@ public sealed partial class IslandLife
         if (_places.Length == 0) throw new ArgumentException("At least one place is required.", nameof(places));
         _seed = seed; _random = new DeterministicRandom(seed); _ids = new IdSequence(seed);
         Factions = Config.Factions.OrderBy(f => f.Id).Select(f => new IslandFaction(f.ToProfile())).ToList();
-        int f = Factions.Count; _relations = new double[f, f]; _truceUntil = new double[f, f]; _lastPact = new double[f, f]; _atWar = new bool[f, f]; _embargoUntil = new double[f];
+        int f = Factions.Count; _relations = new double[f, f]; _truceUntil = new double[f, f]; _lastPact = new double[f, f]; _warSince = new double[f, f]; _atWar = new bool[f, f]; _embargoUntil = new double[f];
         for (int a = 0; a < f; a++) for (int b = 0; b < f; b++) _relations[a, b] = a == b ? 1 : BaseRelation(Factions[a].Profile, Factions[b].Profile);
         AssignTerritory();
         if (forgeNames)
@@ -240,7 +255,8 @@ public sealed partial class IslandLife
         return r > .55 ? Stance.Alliance : r < -.15 ? Stance.Hostile : Stance.Neutral;
     }
     public IEnumerable<IslandPerson> Officers(int faction) => AllPeople().Where(p => p.Alive && p.Faction == faction && p.Officer).OrderByDescending(p => p.Rank).ThenByDescending(p => p.Combat);
-    public IEnumerable<IslandPerson> AllPeople() => Cities.SelectMany(c => c.Residents).Concat(_squads.SelectMany(s => s.Members));
+    // Finished squads are skipped: their survivors already moved into a city, and counting them again duplicated exiles.
+    public IEnumerable<IslandPerson> AllPeople() => Cities.SelectMany(c => c.Residents).Concat(_squads.Where(s => !s.Done).SelectMany(s => s.Members)).Distinct();
     public IEnumerable<IslandPerson> Nemeses => AllPeople().Where(p => p.Alive && p.Memory.Count > 0).OrderByDescending(p => p.Memory.Count);
 
     // ---------- setup ----------
@@ -276,12 +292,35 @@ public sealed partial class IslandLife
         foreach (var site in Cities.Where(c => c.Owner < 0))
             SetOwner(site, site.IsLair && HasMonsters ? Monsters.Id : Cities.Where(c => c.IsCity).OrderBy(c => Distance(c.Place, site.Place)).First().Owner, true);
         FairPlace = Cities.Where(c => c.IsCity).OrderBy(c => c.Place.X * c.Place.X + c.Place.Z * c.Place.Z).First().Place.Id;
+        foreach (var city in Cities) CreateOutposts(city, B.OutpostGarrison);
+    }
+
+    /// <summary>Moves a city's posts onto spots chosen by the world generator (flat, levelled ground); extra posts are dropped.</summary>
+    public void PlaceOutposts(int placeId, IReadOnlyList<(double X, double Z)> spots)
+    {
+        var city = Cities.FirstOrDefault(c => c.Place.Id == placeId); if (city == null || spots == null || spots.Count == 0) return;
+        for (int k = 0; k < city.Outposts.Count && k < spots.Count; k++) { city.Outposts[k].X = spots[k].X; city.Outposts[k].Z = spots[k].Z; }
+        if (spots.Count < city.Outposts.Count) city.Outposts.RemoveRange(spots.Count, city.Outposts.Count - spots.Count);
+    }
+
+    // Evenly spaced on a ring; the rotation comes from the place id so it never consumes the random stream.
+    void CreateOutposts(IslandCity city, double garrison)
+    {
+        city.Outposts.Clear();
+        if (!city.IsCity || city.IsLair) return;
+        double turn = city.Place.Id * 2.399963;
+        for (int i = 0; i < B.OutpostsPerCity; i++)
+        {
+            double a = turn + i * 2 * Math.PI / B.OutpostsPerCity;
+            city.Outposts.Add(new IslandOutpost(i, city.Place.X + Math.Cos(a) * B.OutpostRadius, city.Place.Z + Math.Sin(a) * B.OutpostRadius, city.Owner, garrison));
+        }
     }
 
     void SetOwner(IslandCity city, int owner, bool initial = false)
     {
         if (!initial) city.PreviousOwner = city.Owner;
         city.Owner = owner;
+        foreach (var post in city.Outposts) { post.Owner = owner; post.Garrison = B.OutpostGarrison * .5; } // the new owner holds the ring, thinly
         if (initial) city.OriginalOwner = owner;
     }
 
@@ -441,7 +480,7 @@ public sealed partial class IslandLife
     {
         var exiles = _squads.FirstOrDefault(s => !s.Done && s.Faction == faction.Id);
         if (exiles != null) return;
-        faction.Exiled = false; faction.Extinct = true;
+        faction.Exiled = false; faction.Extinct = true; faction.ExtinctSince = Hours;
         Raise("extinct", $"{faction.Profile.Name} deixou de existir.", 0, 0, a: faction.Id);
     }
 
@@ -533,11 +572,53 @@ public sealed partial class IslandLife
         GoHome(squad);
     }
 
+    // Skirmish for one post; the city itself is untouched until its whole ring is lost.
+    void AttackOutpost(IslandSquad squad, IslandCity city, IslandOutpost post)
+    {
+        var attacker = Factions[squad.Faction]; var defender = Factions[post.Owner];
+        double defence = post.Garrison * (.7 + _random.NextDouble() * .6) * Math.Max(.4, defender.Morale);
+        double attack = squad.Strength * (.7 + _random.NextDouble() * .6) * Math.Max(.4, attacker.Morale);
+        Train(squad.Members, 1);
+        int left = city.Outposts.Count(o => o.Owner == defender.Id);
+        if (attack <= defence)
+        {
+            foreach (var m in squad.Members.Where(m => m.Alive).Take(1 + _random.Next(2))) Wound(m, .2 + _random.NextDouble() * .4, null);
+            attacker.WarWeariness += .25; post.Garrison = Math.Max(.5, post.Garrison - .3);
+            Raise("outpost", $"Um posto de {defender.Profile.Name} perto de {city.Place.Name} repeliu {attacker.Profile.Name}.", post.X, post.Z, 0, a: attacker.Id, b: defender.Id, place: city.Place.Id);
+            return;
+        }
+        foreach (var m in squad.Members.Where(m => m.Alive).Take(_random.Next(2))) Wound(m, .1 + _random.NextDouble() * .3, null);
+        post.Owner = attacker.Id; post.Garrison = B.OutpostGarrison * .5;
+        Raise("outpost", left > 1 ? $"{attacker.Profile.Name} tomaram um posto perto de {city.Place.Name} (faltam {left - 1})." : $"{attacker.Profile.Name} tomaram o último posto de {city.Place.Name}: a cidade está exposta.",
+            post.X, post.Z, left > 1 ? 1 : 2, a: attacker.Id, b: defender.Id, place: city.Place.Id);
+    }
+
+    // Owners refill their posts; enemy-held posts are lost on peace or may be retaken by a strong garrison.
+    void TendOutposts()
+    {
+        foreach (var city in Cities)
+            foreach (var post in city.Outposts)
+            {
+                if (post.Owner == city.Owner) { post.Garrison = Math.Min(B.OutpostGarrison, post.Garrison + B.OutpostRegenPerDay); continue; }
+                if (city.Owner < 0 || Factions[post.Owner].Extinct || !AtWar(post.Owner, city.Owner))
+                { post.Owner = city.Owner; post.Garrison = B.OutpostGarrison * .5; continue; }
+                if (city.Defence > post.Garrison * 3 && _random.NextDouble() < B.OutpostRetakeChance)
+                {
+                    int lost = post.Owner; post.Owner = city.Owner; post.Garrison = B.OutpostGarrison * .5;
+                    Raise("outpost", $"{Factions[city.Owner].Profile.Name} retomaram um posto perto de {city.Place.Name}.", post.X, post.Z, 0, a: city.Owner, b: lost, place: city.Place.Id);
+                }
+            }
+    }
+
     // Battle for a settlement; on victory the attacker applies its conquest policy.
     void Siege(IslandSquad squad, IslandCity city)
     {
         var attacker = Factions[squad.Faction]; int defenderId = city.Owner; var defender = Factions[defenderId];
         if (city.IsLair && !attacker.Profile.Monsters) return; // lairs are hunted, never held
+        // A city falls in stages: its posts first. Exiles (insiders) and the dead (raiders) go straight in.
+        if (squad.Mission == IslandMission.Raid && !attacker.Profile.Monsters
+            && city.Outposts.Where(o => o.Owner == defenderId).OrderBy(o => (o.X - squad.X) * (o.X - squad.X) + (o.Z - squad.Z) * (o.Z - squad.Z)).FirstOrDefault() is IslandOutpost post)
+        { AttackOutpost(squad, city, post); return; }
         double defence = city.Defence * (.7 + _random.NextDouble() * .6) * Math.Max(.4, defender.Morale);
         double attack = squad.Strength * (.7 + _random.NextDouble() * .6) * Math.Max(.4, attacker.Morale);
         Train(squad.Members, 3); Train(city.Residents, 3);
@@ -612,7 +693,7 @@ public sealed partial class IslandLife
             if (o.Loyalty < .5 && !o.Traits.Contains("Honrado") && _random.NextDouble() < .6) Defect(o, conqueror.Id);
         var survivors = AllPeople().Where(p => p.Alive && p.Faction == faction.Id).ToList();
         foreach (var site in Cities.Where(c => c.Owner == faction.Id)) SetOwner(site, conqueror.Id);
-        if (survivors.Count < 3) { faction.Extinct = true; Raise("extinct", $"{faction.Profile.Name} foi extinta por {conqueror.Profile.Name}.", 0, 0, a: faction.Id, b: conqueror.Id); return; }
+        if (survivors.Count < 3) { faction.Extinct = true; faction.ExtinctSince = Hours; Raise("extinct", $"{faction.Profile.Name} foi extinta por {conqueror.Profile.Name}.", 0, 0, a: faction.Id, b: conqueror.Id); return; }
         faction.Exiled = true;
         var target = Cities.Where(c => c.IsCity && c.OriginalOwner == faction.Id).OrderBy(c => c.Defence).First();
         var exiles = new IslandSquad(++_squadIds, faction.Id, IslandMission.Reconquest, target.Place.Id, target.Place.Id) { X = survivors[0].Home >= 0 ? Place(survivors[0].Home).X : 0, Z = survivors[0].Home >= 0 ? Place(survivors[0].Home).Z : 0 };
@@ -807,6 +888,17 @@ public sealed partial class IslandLife
     }
 
     /// <summary>The player helped a faction (missions, kills of its enemies, deliveries): it grows stronger.</summary>
+    /// <summary>The player cleared a post and handed it to <paramref name="faction"/> (a mission for that faction).</summary>
+    public bool PlayerTakeOutpost(int place, int index, int faction)
+    {
+        var city = Cities.FirstOrDefault(c => c.Place.Id == place);
+        if (city == null || index < 0 || index >= city.Outposts.Count || city.Outposts[index].Owner == faction) return false;
+        var post = city.Outposts[index]; int lost = post.Owner;
+        post.Owner = faction; post.Garrison = B.OutpostGarrison * .5;
+        Raise("outpost", $"Um mercenário tomou um posto perto de {city.Place.Name} para {Factions[faction].Profile.Name}.", post.X, post.Z, 2, a: faction, b: lost, place: place);
+        return true;
+    }
+
     public void HelpFaction(int faction, double amount)
     {
         var f = Factions[faction]; f.PlayerInfluence += amount; f.Morale = Math.Min(1.4, f.Morale + amount * .05); f.Treasury += amount * 40;
@@ -827,6 +919,12 @@ public sealed partial class IslandLife
     }
 
     void Daily()
+    {
+        TendOutposts();
+        DailyFactions();
+    }
+
+    void DailyFactions()
     {
         foreach (var f in Factions.Where(f => !f.Extinct && !f.Profile.Monsters))
         {
@@ -878,6 +976,9 @@ public sealed partial class IslandLife
     void Revolt(IslandCity c)
     {
         int ruler = c.Owner; c.Unrest = .3;
+        // A people whose old faction died out may raise its banner again (keeps a conquered island from freezing under one ruler).
+        var origin = c.OriginalOwner >= 0 && c.OriginalOwner != ruler ? Factions[c.OriginalOwner] : null;
+        if (origin is { Extinct: true } && !origin.Profile.Monsters && !origin.Profile.Nomadic && Hours - origin.ExtinctSince >= 24 * (Factions.Count(x => !x.Extinct && !x.Profile.Monsters && !x.Profile.Nomadic) <= 1 ? 5 : B.RebirthDays)) { Reborn(origin, c, ruler); return; }
         int to = c.PreviousOwner != ruler && c.PreviousOwner >= 0 && !Factions[c.PreviousOwner].Extinct && !Factions[c.PreviousOwner].Profile.Monsters ? c.PreviousOwner
             : Factions.Where(f => f.Id != ruler && !f.Extinct && !f.Profile.Monsters && !f.Profile.Nomadic).OrderByDescending(f => Relation(f.Id, ruler) < 0 ? f.Power : 0).Select(f => f.Id).DefaultIfEmpty(-1).First();
         if (to < 0) return; // nobody left to turn to: the unrest simmers on
@@ -889,6 +990,27 @@ public sealed partial class IslandLife
         Raise("revolt", $"Revolta em {c.Place.Name}: o povo expulsou {Factions[ruler].Profile.Name} e se juntou a {Factions[to].Profile.Name}.", c.Place.X, c.Place.Z, a: ruler, b: to, place: c.Place.Id);
         if (wasCapital) CapitalFell(Factions[ruler], c);
         CheckExtinction(Factions[ruler], Factions[to]);
+    }
+
+    void Reborn(IslandFaction f, IslandCity c, int ruler)
+    {
+        c.CalmUntil = Hours + 24 * B.RevoltCalmDays;
+        foreach (var r in c.Residents.Where(r => r.Officer && r.Faction == ruler)) r.Health = 0;
+        c.Residents.RemoveAll(r => !r.Alive);
+        foreach (var r in c.Residents) { r.Faction = f.Id; r.SubjugatedUntil = 0; }
+        bool wasCapital = c.CapitalOf == ruler;
+        SetOwner(c, f.Id); c.CapitalOf = f.Id;
+        f.Extinct = false; f.Exiled = false; f.ExtinctSince = -1; f.VassalOf = null; f.Morale = 1; f.WarWeariness = 0; f.Treasury = Math.Max(f.Treasury, 200);
+        var leader = MakeOfficer(c, f.Id, Rank.Leader); leader.Title = "";
+        for (int g = 0; g < B.Generals; g++) MakeOfficer(c, f.Id, Rank.General);
+        for (int k = 0; k < B.Captains / 2; k++) MakeOfficer(c, f.Id, Rank.Captain);
+        while (c.Residents.Count(r => r.Alive && r.Faction == f.Id) < c.Capacity / 2) c.Residents.Add(Born(c, f.Id));
+        // A grace period lets the reborn faction hold its city; without it most died again within days.
+        foreach (var o in Factions.Where(o => o.Id != f.Id && !o.Profile.Monsters)) { SetWar(f.Id, o.Id, false); _truceUntil[f.Id, o.Id] = _truceUntil[o.Id, f.Id] = Hours + 24 * B.RebirthGraceDays; }
+        _relations[f.Id, ruler] = _relations[ruler, f.Id] = -.7;
+        Raise("rebirth", $"{f.Profile.Name} renasce em {c.Place.Name}: {leader.DisplayName} lidera o levante contra {Factions[ruler].Profile.Name}.", c.Place.X, c.Place.Z, 2, a: f.Id, b: ruler, place: c.Place.Id, subject: leader.DisplayName);
+        if (wasCapital) CapitalFell(Factions[ruler], c);
+        CheckExtinction(Factions[ruler], f);
     }
 
     void UpdatePower()
@@ -967,7 +1089,8 @@ public sealed partial class IslandLife
                 }
             }
             // War weariness brings truces; a broken balance brings declarations and betrayals.
-            if (stance == Stance.War && a.WarWeariness > B.TruceWeariness && b.WarWeariness > B.TruceWeariness)
+            // Weariness is per faction, so a minimum length keeps a second front from ending the day after it opens.
+            if (stance == Stance.War && Hours - _warSince[a.Id, b.Id] >= 24 * B.MinWarDays && a.WarWeariness > B.TruceWeariness && b.WarWeariness > B.TruceWeariness)
             {
                 SetWar(a.Id, b.Id, false); _truceUntil[a.Id, b.Id] = _truceUntil[b.Id, a.Id] = Hours + 24 * B.TruceDays; _relations[a.Id, b.Id] = _relations[b.Id, a.Id] = -.2;
                 Raise("truce", $"Trégua de {B.TruceDays:0} dias entre {a.Profile.Name} e {b.Profile.Name}.", 0, 0, a: a.Id, b: b.Id);
@@ -990,7 +1113,7 @@ public sealed partial class IslandLife
     // Daily chance that a stronger regime of this ideology starts a war of conquest.
     static double Aggression(Ideology i) => i switch { Ideology.Authoritarian => .07, Ideology.Feudalism => .05, Ideology.Communism => .04, Ideology.Theocracy => .03, Ideology.Capitalism => .025, Ideology.Socialism => .015, Ideology.Anarchism => .008, _ => 0 };
 
-    void SetWar(int a, int b, bool war) { _atWar[a, b] = _atWar[b, a] = war; }
+    void SetWar(int a, int b, bool war) { if (war && !_atWar[a, b]) _warSince[a, b] = _warSince[b, a] = Hours; _atWar[a, b] = _atWar[b, a] = war; }
 
     void MoveFair()
     {
@@ -1028,6 +1151,7 @@ public sealed partial class IslandLife
     {
         ulong h = StableHash.Combine((ulong)(Hours * 1000), (ulong)_squadIds);
         foreach (var c in Cities) h = StableHash.Combine(h, (ulong)(c.Owner + 1), (ulong)c.Residents.Count, (ulong)(c.Food * 100));
+        foreach (var o in Cities.SelectMany(c => c.Outposts)) h = StableHash.Combine(h, (ulong)(o.Owner + 1), (ulong)(o.Garrison * 100));
         foreach (var e in _events) h = StableHash.Combine(h, StableHash.Text(e.Text));
         return h;
     }

@@ -100,12 +100,19 @@ TYPE ArtificialLife.Core.BalanceData : System.Object []
   Field: Double GarrisonShare
   Field: Double Growth
   Field: Double LairHuntCooldownHours
+  Field: Double MinWarDays
   Field: Double MonsterGrowth
   Field: Double MonsterRaidCooldownHours
+  Field: Double OutpostGarrison
+  Field: Double OutpostRadius
+  Field: Double OutpostRegenPerDay
+  Field: Double OutpostRetakeChance
   Field: Double PactCooldownDays
   Field: Double PactFoodRatio
   Field: Double PurgeCooldownDays
   Field: Double RaidChance
+  Field: Double RebirthDays
+  Field: Double RebirthGraceDays
   Field: Double RecruitCost
   Field: Double RevoltCalmDays
   Field: Double SerfdomDays
@@ -122,6 +129,7 @@ TYPE ArtificialLife.Core.BalanceData : System.Object []
   Field: Int32 MonsterSquads
   Field: Int32 NomadCaptains
   Field: Int32 NomadGuards
+  Field: Int32 OutpostsPerCity
   Field: Int32 OverextensionCities
   Field: Int32 PromotionKills
   Field: Int32 SquadsPerFaction
@@ -190,12 +198,16 @@ TYPE ArtificialLife.Core.CityState : System.Object []
   Field: Double NextPurge
   Field: Double NextRaid
   Field: Double Unrest
+  Field: Double[] OutpostGarrisons
+  Field: Double[] OutpostX
+  Field: Double[] OutpostZ
   Field: Int32 Capacity
   Field: Int32 CapitalOf
   Field: Int32 OriginalOwner
   Field: Int32 Owner
   Field: Int32 Place
   Field: Int32 PreviousOwner
+  Field: Int32[] OutpostOwners
   Constructor: Void .ctor()
 TYPE ArtificialLife.Core.CommitmentState : System.Object []
   Method: Boolean CanSwitch(Int64, Double, Double, Double)
@@ -476,6 +488,7 @@ TYPE ArtificialLife.Core.FactionProfile : System.Object [System.IEquatable<Artif
 TYPE ArtificialLife.Core.FactionState : System.Object []
   Field: Boolean Exiled
   Field: Boolean Extinct
+  Field: Double ExtinctSince
   Field: Double Morale
   Field: Double PlayerInfluence
   Field: Double Power
@@ -648,6 +661,7 @@ TYPE ArtificialLife.Core.IslandCity : System.Object []
   Property: System.Int32 OriginalOwner { get;  }
   Property: System.Int32 Owner { get;  }
   Property: System.Int32 PreviousOwner { get;  }
+  Property: System.Collections.Generic.List<ArtificialLife.Core.IslandOutpost> Outposts { get;  }
   Property: System.Collections.Generic.List<ArtificialLife.Core.IslandPerson> Residents { get;  }
 TYPE ArtificialLife.Core.IslandEvent : System.Object [System.IEquatable<ArtificialLife.Core.IslandEvent>]
   Method: ArtificialLife.Core.IslandEvent <Clone>$()
@@ -672,6 +686,7 @@ TYPE ArtificialLife.Core.IslandFaction : System.Object []
   Property: ArtificialLife.Core.IdeologyRules Rules { get;  }
   Property: System.Boolean Exiled { get;  }
   Property: System.Boolean Extinct { get;  }
+  Property: System.Double ExtinctSince { get;  }
   Property: System.Double Morale { get;  }
   Property: System.Double PlayerInfluence { get;  }
   Property: System.Double Power { get;  }
@@ -692,6 +707,7 @@ TYPE ArtificialLife.Core.IslandLife : System.Object []
   Method: Boolean Embargoed(Int32)
   Property: System.Boolean HasMonsters { get;  }
   Property: System.Boolean HasNomads { get;  }
+  Method: Boolean PlayerTakeOutpost(Int32, Int32, Int32)
   Property: System.Double CycleHours { get; set;  }
   Property: System.Double EncounterMetres { get; set;  }
   Property: System.Double Hours { get;  }
@@ -716,6 +732,7 @@ TYPE ArtificialLife.Core.IslandLife : System.Object []
   Constructor: Void .ctor(UInt64, System.Collections.Generic.IEnumerable`1[ArtificialLife.Core.WorldPlace], System.Collections.Generic.IEnumerable`1[ArtificialLife.Core.WorldRoute], System.Collections.Generic.IReadOnlyList`1[ArtificialLife.Core.FactionProfile], Boolean)
   Method: Void Fight(ArtificialLife.Core.IslandSquad, ArtificialLife.Core.IslandSquad)
   Method: Void HelpFaction(Int32, Double)
+  Method: Void PlaceOutposts(Int32, System.Collections.Generic.IReadOnlyList`1[System.ValueTuple`2[System.Double,System.Double]])
   Method: Void RecordPlayerEncounter(ArtificialLife.Core.IslandPerson, Boolean)
   Method: Void ReportDamage(ArtificialLife.Core.IslandPerson, Double, ArtificialLife.Core.IslandPerson)
   Method: Void Step(Double)
@@ -744,6 +761,7 @@ TYPE ArtificialLife.Core.IslandLifeState : System.Object []
   Field: Double[] LastPact
   Field: Double[] Relations
   Field: Double[] TruceUntil
+  Field: Double[] WarSince
   Field: Int32 FairPlace
   Field: Int32 SquadIds
   Field: Int32 Version
@@ -761,6 +779,12 @@ TYPE ArtificialLife.Core.IslandMission : System.Enum [System.IComparable,System.
   Field: ArtificialLife.Core.IslandMission Reconquest = 4
   Field: ArtificialLife.Core.IslandMission Trade = 3
   Field: Int32 value__
+TYPE ArtificialLife.Core.IslandOutpost : System.Object []
+  Property: System.Double Garrison { get;  }
+  Property: System.Double X { get;  }
+  Property: System.Double Z { get;  }
+  Property: System.Int32 Index { get;  }
+  Property: System.Int32 Owner { get;  }
 TYPE ArtificialLife.Core.IslandPerson : System.Object []
   Property: ArtificialLife.Core.EntityId Id { get;  }
   Property: ArtificialLife.Core.Rank Rank { get;  }
