@@ -701,6 +701,7 @@ TYPE ArtificialLife.Core.IslandLife : System.Object []
   Method: ArtificialLife.Core.IslandLife Load(ArtificialLife.Core.IslandLifeState)
   Property: ArtificialLife.Core.IslandLifeConfig Config { get;  }
   Method: ArtificialLife.Core.IslandLifeState Save()
+  Method: ArtificialLife.Core.IslandSquad SendReinforcements(Int32, Int32)
   Method: ArtificialLife.Core.Stance StanceOf(Int32, Int32)
   Method: ArtificialLife.Core.WorldPlace NearestPlace(Double, Double)
   Method: Boolean AtWar(Int32, Int32)
