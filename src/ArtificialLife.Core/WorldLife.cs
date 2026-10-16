@@ -80,6 +80,7 @@ public sealed class WorldSquad
     public void SetPosition(double x, double z) { X = x; Z = z; }
 }
 
+[Obsolete("Superseded by IslandLife (faction war, Nemesis, save/load, data config). Kept for older samples and tests.")]
 public sealed class WorldLife
 {
     readonly WorldPlace[] _places; readonly WorldRoute[] _routes; readonly double[,] _relations;

@@ -55,6 +55,9 @@ public sealed class NameForge
 
     readonly HashSet<string> _usedPeople = new(StringComparer.OrdinalIgnoreCase), _usedTitles = new(StringComparer.OrdinalIgnoreCase), _usedPlaces = new(StringComparer.OrdinalIgnoreCase);
 
+    internal string[][] ExportUsed() => new[] { _usedPeople.ToArray(), _usedTitles.ToArray(), _usedPlaces.ToArray() };
+    internal void ImportUsed(string[][] used) { _usedPeople.UnionWith(used[0]); _usedTitles.UnionWith(used[1]); _usedPlaces.UnionWith(used[2]); }
+
     // Gendered epithets (male, female); a world never repeats one.
     static readonly (string Male, string Female)[] Titles =
     {
@@ -67,7 +70,7 @@ public sealed class NameForge
         ("o Escudo", "o Escudo"), ("o Martelo", "a Martela"), ("o Javali", "a Javalina"), ("o Sombrio", "a Sombria"),
     };
 
-    public static NameCulture CultureFor(FactionProfile p) => p.Monsters ? NameCulture.Common : p.Nomadic ? NameCulture.Road : (NameCulture)(p.Id % 5);
+    public static NameCulture CultureFor(FactionProfile p) => p.Culture ?? (p.Monsters ? NameCulture.Common : p.Nomadic ? NameCulture.Road : (NameCulture)(p.Id % 5));
 
     /// <summary>Gendered first name + surname of the culture, unique within this forge.</summary>
     public string Person(NameCulture culture, bool female, ref DeterministicRandom random)

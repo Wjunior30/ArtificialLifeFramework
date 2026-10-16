@@ -1,0 +1,215 @@
+{
+  "Factions": [
+    {
+      "Id": 0,
+      "Name": "Guarda de Ferro",
+      "LeaderName": "Comandante Varga",
+      "Story": "Restos do antigo exército; ordem e tributo pelas rodovias.",
+      "Ideology": 6,
+      "Conquest": 1,
+      "PreferredTargets": [
+        "Town",
+        "Village"
+      ],
+      "Nomadic": false,
+      "Monsters": false,
+      "AlliedWithMonsters": false,
+      "SwornEnemy": -1,
+      "Culture": 0
+    },
+    {
+      "Id": 1,
+      "Name": "Irmandade da Cinza",
+      "LeaderName": "Abadessa Ilmar",
+      "Story": "Purificadores que queimam a praga dos mortos.",
+      "Ideology": 3,
+      "Conquest": 2,
+      "PreferredTargets": [
+        "Nest",
+        "Ruins"
+      ],
+      "Nomadic": false,
+      "Monsters": false,
+      "AlliedWithMonsters": false,
+      "SwornEnemy": 4,
+      "Culture": 1
+    },
+    {
+      "Id": 2,
+      "Name": "Corsários do Porto Velho",
+      "LeaderName": "Capitã Rosa Negra",
+      "Story": "Marinheiros presos na ilha que vivem do comércio e do saque.",
+      "Ideology": 0,
+      "Conquest": 0,
+      "PreferredTargets": [
+        "Port",
+        "Fishing",
+        "Farm"
+      ],
+      "Nomadic": false,
+      "Monsters": false,
+      "AlliedWithMonsters": false,
+      "SwornEnemy": -1,
+      "Culture": 2
+    },
+    {
+      "Id": 3,
+      "Name": "Os Livres",
+      "LeaderName": "Dorran, o Ruivo",
+      "Story": "Mineiros revoltados contra o tributo; o que é de um é de todos.",
+      "Ideology": 2,
+      "Conquest": 4,
+      "PreferredTargets": [
+        "Mine",
+        "Village"
+      ],
+      "Nomadic": false,
+      "Monsters": false,
+      "AlliedWithMonsters": false,
+      "SwornEnemy": 0,
+      "Culture": 3
+    },
+    {
+      "Id": 4,
+      "Name": "Culto do Véu",
+      "LeaderName": "O Velado",
+      "Story": "Senhores necromantes que guiam os mortos como servos.",
+      "Ideology": 4,
+      "Conquest": 3,
+      "PreferredTargets": [
+        "Village",
+        "Farm"
+      ],
+      "Nomadic": false,
+      "Monsters": false,
+      "AlliedWithMonsters": true,
+      "SwornEnemy": 1,
+      "Culture": 4
+    },
+    {
+      "Id": 5,
+      "Name": "Nômades da Estrada",
+      "LeaderName": "Mestra Sahra",
+      "Story": "Caravanas sem cidade; neutras, compram, vendem e levam recados.",
+      "Ideology": 7,
+      "Conquest": 0,
+      "PreferredTargets": [],
+      "Nomadic": true,
+      "Monsters": false,
+      "AlliedWithMonsters": false,
+      "SwornEnemy": -1,
+      "Culture": 5
+    },
+    {
+      "Id": 6,
+      "Name": "Mortos-vivos",
+      "LeaderName": "-",
+      "Story": "A praga que se levanta dos ninhos e das ruínas.",
+      "Ideology": 8,
+      "Conquest": 3,
+      "PreferredTargets": [],
+      "Nomadic": false,
+      "Monsters": true,
+      "AlliedWithMonsters": false,
+      "SwornEnemy": -1,
+      "Culture": 6
+    }
+  ],
+  "Places": [
+    {
+      "Kind": "Town",
+      "Production": 0.9,
+      "Capacity": 0,
+      "Lair": false,
+      "CapitalCandidate": true
+    },
+    {
+      "Kind": "Village",
+      "Production": 1.1,
+      "Capacity": 0,
+      "Lair": false,
+      "CapitalCandidate": false
+    },
+    {
+      "Kind": "Farm",
+      "Production": 3,
+      "Capacity": 0,
+      "Lair": false,
+      "CapitalCandidate": false
+    },
+    {
+      "Kind": "Port",
+      "Production": 2.2,
+      "Capacity": 0,
+      "Lair": false,
+      "CapitalCandidate": false
+    },
+    {
+      "Kind": "Fishing",
+      "Production": 2.2,
+      "Capacity": 0,
+      "Lair": false,
+      "CapitalCandidate": false
+    },
+    {
+      "Kind": "Mine",
+      "Production": 0.5,
+      "Capacity": 0,
+      "Lair": false,
+      "CapitalCandidate": false
+    },
+    {
+      "Kind": "Nest",
+      "Production": 0,
+      "Capacity": 8,
+      "Lair": true,
+      "CapitalCandidate": false
+    },
+    {
+      "Kind": "Ruins",
+      "Production": 0,
+      "Capacity": 8,
+      "Lair": true,
+      "CapitalCandidate": false
+    }
+  ],
+  "Balance": {
+    "MaxSquads": 10,
+    "SquadsPerFaction": 3,
+    "MonsterSquads": 2,
+    "CycleHours": 0.5,
+    "SquadSpeedKmh": 4.5,
+    "EncounterMetres": 200,
+    "RaidChance": 0.3,
+    "GarrisonShare": 0.5,
+    "MonsterRaidCooldownHours": 18,
+    "LairHuntCooldownHours": 24,
+    "ConsumptionPerResident": 0.04,
+    "Growth": 0.045,
+    "MonsterGrowth": 0.08,
+    "SubjugationDays": 15,
+    "SerfdomDays": 30,
+    "SubjugatedPower": 0.3,
+    "OverextensionCities": 6,
+    "CoalitionShare": 0.4,
+    "CoalitionCooldownDays": 10,
+    "CoalitionTruceDays": 15,
+    "TruceDays": 10,
+    "TruceWeariness": 2,
+    "PactCooldownDays": 8,
+    "PactFoodRatio": 1.6,
+    "EmbargoDays": 10,
+    "PurgeCooldownDays": 7,
+    "RevoltCalmDays": 20,
+    "RecruitCost": 40,
+    "TaxScale": 10,
+    "VassalTribute": 0.3,
+    "Generals": 2,
+    "Captains": 6,
+    "NomadCaptains": 3,
+    "NomadGuards": 8,
+    "PromotionKills": 6,
+    "DuelChance": 0.04,
+    "DefectChance": 0.15
+  }
+}

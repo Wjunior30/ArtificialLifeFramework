@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.4.0
+
+- IslandLife is data-driven: `IslandLifeConfig` (factions, place rules, balance) loads from JSON (System.Text.Json or Unity JsonUtility); the old constructor still works.
+- Save/load: `IslandLife.Save()` returns a self-contained `IslandLifeState`; `IslandLife.Load(state)` continues identically.
+- Structured events: `IslandEvent` carries `FactionA`, `FactionB`, `Place`, `Subject`; `Localize` translates them.
+- Traits change behaviour: cowards break early, brave leaders hold, honourable officers never defect, ambitious ones defect twice as often.
+- Worlds without nomads or undead are supported (`HasNomads`, `HasMonsters`); `FactionProfile.Culture` picks the name culture.
+- Fix: a squad could pick the same soldier twice, duplicating residents and inflating defence.
+- `WorldLife` is obsolete (superseded by IslandLife).
+- Examples in `examples/island-life` (default island and a three-kingdom continent).
+
 ## Unreleased
 
 - Track complete Legacy conflict lifecycles and active-war duration without changing its combat model.

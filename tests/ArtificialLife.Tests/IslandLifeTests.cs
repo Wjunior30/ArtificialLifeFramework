@@ -39,6 +39,32 @@ public sealed class IslandLifeTests
     }
 
     [Fact]
+    public void SavedWarLoadsFromJsonAndContinuesIdentically()
+    {
+        var json = new System.Text.Json.JsonSerializerOptions { IncludeFields = true };
+        var a = Create(5); Run(a, 12);
+        var text = System.Text.Json.JsonSerializer.Serialize(a.Save(), json);
+        var b = IslandLife.Load(System.Text.Json.JsonSerializer.Deserialize<IslandLifeState>(text, json)!);
+        Assert.Equal(text, System.Text.Json.JsonSerializer.Serialize(b.Save(), json));
+        Run(a, 15); Run(b, 15);
+        Assert.Equal(a.Fingerprint(), b.Fingerprint());
+        Assert.Equal(System.Text.Json.JsonSerializer.Serialize(a.Save(), json), System.Text.Json.JsonSerializer.Serialize(b.Save(), json));
+        output.WriteLine($"save {text.Length / 1024} KB, {a.AllPeople().Count()} people, {a.Events.Count} events");
+    }
+
+    [Fact]
+    public void EventsCarryFactionsPlaceAndCanBeTranslated()
+    {
+        var life = Create(3); life.Localize = e => e.Kind == "capture" ? $"{life.Factions[e.FactionA].Profile.Name} took {life.Cities.First(c => c.Place.Id == e.Place).Place.Name}" : null;
+        var all = new List<IslandEvent>(); life.EventRaised += all.Add;
+        Run(life, 30);
+        var captures = all.Where(e => e.Kind == "capture").ToList();
+        Assert.NotEmpty(captures);
+        Assert.All(captures, e => { Assert.True(e.FactionA >= 0 && e.FactionB >= 0 && e.Place >= 0); Assert.Contains(" took ", e.Text); });
+        Assert.All(all.Where(e => e.Kind is "war" or "truce" or "pact"), e => Assert.True(e.FactionA >= 0 && e.FactionB >= 0));
+    }
+
+    [Fact]
     public void OfficersRememberThePlayer()
     {
         var life = Create(3);
@@ -73,5 +99,50 @@ public sealed class IslandLifeTests
             Assert.True(life.Cities.Where(c => c.IsLair).All(c => c.Owner == life.Monsters.Id), "Lairs are hunted, never held.");
             Assert.True(K("trade") > 0, "Nomads must trade.");
         }
+    }
+}
+
+public sealed class OtherWorldTests
+{
+    // A different game made only with data: a continent with three kingdoms, castles, hamlets and quarries, no nomads, no undead.
+    public static IslandLifeConfig Continent() => new()
+    {
+        Factions = new[]
+        {
+            new FactionData { Id = 0, Name = "Reino do Norte", LeaderName = "Rei Hadran", Ideology = Ideology.Feudalism, Conquest = ConquestPolicy.Exploit, PreferredTargets = new[] { "Quarry" }, Culture = NameCulture.Iron },
+            new FactionData { Id = 1, Name = "Liga Mercante", LeaderName = "Doge Ulvar", Ideology = Ideology.Capitalism, Conquest = ConquestPolicy.Integrate, PreferredTargets = new[] { "Hamlet" }, Culture = NameCulture.Tide },
+            new FactionData { Id = 2, Name = "Comuna Livre", LeaderName = "Irmã Orvel", Ideology = Ideology.Anarchism, Conquest = ConquestPolicy.Liberate, SwornEnemy = 0, Culture = NameCulture.Free },
+        },
+        Places = new[]
+        {
+            new PlaceRule { Kind = "Castle", Production = 1, Capacity = 16, CapitalCandidate = true },
+            new PlaceRule { Kind = "Hamlet", Production = 2 },
+            new PlaceRule { Kind = "Quarry", Production = .4 },
+        },
+        Balance = new BalanceData { MaxSquads = 6, OverextensionCities = 4, CoalitionShare = .5 },
+    };
+
+    public static (WorldPlace[] Places, WorldRoute[] Routes) Map()
+    {
+        var kinds = new[] { "Castle", "Castle", "Castle", "Hamlet", "Hamlet", "Hamlet", "Hamlet", "Hamlet", "Hamlet", "Quarry", "Quarry", "Hamlet" };
+        var places = kinds.Select((k, i) => new WorldPlace(i, $"{k} {i}", k, Math.Cos(i * 2 * Math.PI / kinds.Length) * 3000, Math.Sin(i * 2 * Math.PI / kinds.Length) * 3000, k == "Castle" ? 2 : k == "Hamlet" ? 1 : 0)).ToArray();
+        var routes = places.Select(p => new WorldRoute(p.Id, (p.Id + 1) % places.Length, 1600)).ToArray();
+        return (places, routes);
+    }
+
+    [Fact]
+    public void ContinentWithThreeKingdomsRunsFromDataAlone()
+    {
+        var (places, routes) = Map();
+        var life = new IslandLife(11, places, routes, Continent(), forgeNames: true);
+        Assert.Equal(3, life.Factions.Count);
+        Assert.All(life.Factions, f => Assert.Single(life.Cities, c => c.CapitalOf == f.Id && c.Place.Kind == "Castle"));
+        var kinds = new Dictionary<string, int>(); life.EventRaised += e => kinds[e.Kind] = kinds.TryGetValue(e.Kind, out var n) ? n + 1 : 1;
+        for (int h = 0; h < 60 * 24 * 4; h++) life.Step(.25);
+        Assert.True(kinds.ContainsKey("war") || kinds.ContainsKey("fight") || kinds.ContainsKey("siege"), string.Join(",", kinds.Keys));
+        Assert.Equal(16, life.Cities.First(c => c.Place.Kind == "Castle").Capacity);
+        var state = IslandLife.Load(life.Save());
+        for (int h = 0; h < 96; h++) { life.Step(.25); state.Step(.25); }
+        Assert.Equal(life.Fingerprint(), state.Fingerprint());
     }
 }

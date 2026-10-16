@@ -15,7 +15,7 @@ public enum IslandMission { Raid, Patrol, Hunt, Trade, Reconquest }
 
 /// <summary>Faction data: replace Default with the game's own story (names, ideology, goals, how they treat the defeated).</summary>
 public sealed record FactionProfile(int Id, string Name, string LeaderName, Ideology Ideology, ConquestPolicy Conquest, string Story,
-    string[] PreferredTargets, bool Nomadic = false, bool Monsters = false, int SwornEnemy = -1, bool AlliedWithMonsters = false)
+    string[] PreferredTargets, bool Nomadic = false, bool Monsters = false, int SwornEnemy = -1, bool AlliedWithMonsters = false, NameCulture? Culture = null)
 {
     public static IReadOnlyList<FactionProfile> Default { get; } = new[]
     {
@@ -93,15 +93,15 @@ public sealed class IslandCity
     /// <summary>Faction whose capital this is (-1 for ordinary cities).</summary>
     public int CapitalOf { get; internal set; } = -1;
     public bool IsCity => Place.Tier >= 1;
-    public bool IsLair => Place.Kind is "Nest" or "Ruins";
+    public bool IsLair { get; internal set; }
     public int Capacity { get; }
     public List<IslandPerson> Residents { get; } = new();
     public double Food { get; internal set; } = 30;
     public double Unrest { get; internal set; }
     internal double NextRaid;
     internal double HuntedUntil, CalmUntil, NextPurge;
-    internal double Now;
-    public double Defence => Residents.Where(r => r.Alive && r.Faction == Owner).Sum(r => r.Power * (r.SubjugatedUntil > Now ? .3 : 1)) * (1 + Place.Tier * .5 + (CapitalOf >= 0 ? .5 : 0));
+    internal double Now, SubjugatedPower = .3;
+    public double Defence => Residents.Where(r => r.Alive && r.Faction == Owner).Sum(r => r.Power * (r.SubjugatedUntil > Now ? SubjugatedPower : 1)) * (1 + Place.Tier * .5 + (CapitalOf >= 0 ? .5 : 0));
 }
 
 public sealed class IslandFaction
@@ -146,9 +146,10 @@ public sealed class IslandSquad
     public void SetPosition(double x, double z) { X = x; Z = z; }
 }
 
-public sealed record IslandEvent(double Hour, string Kind, string Text, double X, double Z, int Priority = 1);
+/// <summary>A world event. Text is the built-in Portuguese line; FactionA/FactionB/Place/Subject let a game build its own (see IslandLife.Localize).</summary>
+public sealed record IslandEvent(double Hour, string Kind, string Text, double X, double Z, int Priority = 1, int FactionA = -1, int FactionB = -1, int Place = -1, string? Subject = null);
 
-public sealed class IslandLife
+public sealed partial class IslandLife
 {
     static readonly string[] TraitPool = { "Corajoso", "Covarde", "Cruel", "Honrado", "Vingativo", "Ambicioso", "Leal", "Astuto" };
     static readonly string[] StrengthPool = { "Mestre do arco", "Pele de ferro", "Implacável", "Estrategista", "Veloz" };
@@ -156,22 +157,34 @@ public sealed class IslandLife
 
     readonly WorldPlace[] _places; readonly WorldRoute[] _routes; readonly double[,] _relations; readonly double[,] _truceUntil; readonly double[,] _lastPact;
     readonly NameForge _names = new();
-    readonly IdSequence _ids; DeterministicRandom _random; int _squadIds; double _cycleClock, _dayClock;
+    readonly ulong _seed; readonly IdSequence _ids; DeterministicRandom _random; int _squadIds; double _cycleClock, _dayClock;
     readonly List<IslandSquad> _squads = new(); readonly List<IslandEvent> _events = new();
     readonly bool[,] _atWar;
     double _lastCoalition = -1e9;
-    double[] _embargoUntil = new double[16];
+    double[] _embargoUntil;
     /// <summary>True while the nomads refuse to trade with this faction (after it robbed a caravan).</summary>
     public bool Embargoed(int faction) => Hours < _embargoUntil[faction];
 
     /// <summary>Builds the island war; with forgeNames, places get fictional names fitting their kind and owner culture.</summary>
     public IslandLife(ulong seed, IEnumerable<WorldPlace> places, IEnumerable<WorldRoute> routes, IReadOnlyList<FactionProfile>? profiles = null, bool forgeNames = false)
+        : this(seed, places, routes, ConfigFor(profiles), forgeNames) { }
+
+    static IslandLifeConfig ConfigFor(IReadOnlyList<FactionProfile>? profiles)
     {
+        var config = IslandLifeConfig.Default();
+        if (profiles != null) config.Factions = profiles.Select(FactionData.From).ToArray();
+        return config;
+    }
+
+    /// <summary>Builds the war from data: factions, place rules and balance come from the config (start from IslandLifeConfig.Default()).</summary>
+    public IslandLife(ulong seed, IEnumerable<WorldPlace> places, IEnumerable<WorldRoute> routes, IslandLifeConfig config, bool forgeNames = false)
+    {
+        Config = config ?? throw new ArgumentNullException(nameof(config));
         _places = places.OrderBy(p => p.Id).ToArray(); _routes = routes.ToArray();
         if (_places.Length == 0) throw new ArgumentException("At least one place is required.", nameof(places));
-        _random = new DeterministicRandom(seed); _ids = new IdSequence(seed);
-        Factions = (profiles ?? FactionProfile.Default).OrderBy(p => p.Id).Select(p => new IslandFaction(p)).ToList();
-        int f = Factions.Count; _relations = new double[f, f]; _truceUntil = new double[f, f]; _lastPact = new double[f, f]; _atWar = new bool[f, f];
+        _seed = seed; _random = new DeterministicRandom(seed); _ids = new IdSequence(seed);
+        Factions = Config.Factions.OrderBy(f => f.Id).Select(f => new IslandFaction(f.ToProfile())).ToList();
+        int f = Factions.Count; _relations = new double[f, f]; _truceUntil = new double[f, f]; _lastPact = new double[f, f]; _atWar = new bool[f, f]; _embargoUntil = new double[f];
         for (int a = 0; a < f; a++) for (int b = 0; b < f; b++) _relations[a, b] = a == b ? 1 : BaseRelation(Factions[a].Profile, Factions[b].Profile);
         AssignTerritory();
         if (forgeNames)
@@ -188,17 +201,25 @@ public sealed class IslandLife
     }
 
     public double Hours { get; private set; }
-    public int MaxSquads { get; set; } = 10;
-    public double CycleHours { get; set; } = .5;
-    public double SquadSpeedKmh { get; set; } = 4.5;
-    public double EncounterMetres { get; set; } = 200;
+    public IslandLifeConfig Config { get; }
+    BalanceData B => Config.Balance;
+    public int MaxSquads { get => B.MaxSquads; set => B.MaxSquads = value; }
+    public double CycleHours { get => B.CycleHours; set => B.CycleHours = value; }
+    public double SquadSpeedKmh { get => B.SquadSpeedKmh; set => B.SquadSpeedKmh = value; }
+    public double EncounterMetres { get => B.EncounterMetres; set => B.EncounterMetres = value; }
     public List<IslandFaction> Factions { get; }
     public List<IslandCity> Cities { get; } = new();
     public IReadOnlyList<IslandSquad> Squads => _squads;
     public IReadOnlyList<IslandEvent> Events => _events;
     public event Action<IslandEvent>? EventRaised;
+    /// <summary>The undead faction (throws when the config has none; check HasMonsters).</summary>
     public IslandFaction Monsters => Factions.First(f => f.Profile.Monsters);
+    /// <summary>The nomad faction (throws when the config has none; check HasNomads).</summary>
     public IslandFaction Nomads => Factions.First(f => f.Profile.Nomadic);
+    public bool HasMonsters => MonsterId >= 0;
+    public bool HasNomads => NomadId >= 0;
+    int MonsterId => Factions.FindIndex(f => f.Profile.Monsters);
+    int NomadId => Factions.FindIndex(f => f.Profile.Nomadic);
     /// <summary>Place where the nomads hold their neutral fair (moves every week).</summary>
     public int FairPlace { get; private set; }
 
@@ -237,10 +258,11 @@ public sealed class IslandLife
         var military = Factions.Where(f => !f.Profile.Nomadic && !f.Profile.Monsters).ToList();
         foreach (var place in _places)
         {
-            int capacity = place.Tier >= 2 ? 18 : place.Tier == 1 ? 10 : place.Kind is "Nest" or "Ruins" ? 8 : 5;
-            Cities.Add(new IslandCity(place, -1, capacity));
+            var rule = Config.Rule(place.Kind);
+            int capacity = rule.Capacity > 0 ? rule.Capacity : place.Tier >= 2 ? 18 : place.Tier == 1 ? 10 : 5;
+            Cities.Add(new IslandCity(place, -1, capacity) { IsLair = rule.Lair });
         }
-        var capitals = Cities.Where(c => c.Place.Kind == "Town").Take(military.Count).ToList();
+        var capitals = Cities.Where(c => !c.IsLair && Config.Rule(c.Place.Kind).CapitalCandidate).Take(military.Count).ToList();
         foreach (var c in Cities.Where(c => c.IsCity).OrderByDescending(c => c.Place.Tier)) { if (capitals.Count >= military.Count) break; if (!capitals.Contains(c)) capitals.Add(c); }
         for (int i = 0; i < capitals.Count; i++) { capitals[i].CapitalOf = military[i].Id; SetOwner(capitals[i], military[i].Id, true); }
         int quota = Math.Max(1, Cities.Count(c => c.IsCity) / Math.Max(1, military.Count));
@@ -252,7 +274,7 @@ public sealed class IslandLife
             SetOwner(city, cap.CapitalOf, true); count[cap.CapitalOf]++;
         }
         foreach (var site in Cities.Where(c => c.Owner < 0))
-            SetOwner(site, site.IsLair ? Monsters.Id : Cities.Where(c => c.IsCity).OrderBy(c => Distance(c.Place, site.Place)).First().Owner, true);
+            SetOwner(site, site.IsLair && HasMonsters ? Monsters.Id : Cities.Where(c => c.IsCity).OrderBy(c => Distance(c.Place, site.Place)).First().Owner, true);
         FairPlace = Cities.Where(c => c.IsCity).OrderBy(c => c.Place.X * c.Place.X + c.Place.Z * c.Place.Z).First().Place.Id;
     }
 
@@ -284,9 +306,9 @@ public sealed class IslandLife
             if (capital is null) continue;
             var leader = MakeOfficer(capital, faction.Id, Rank.Leader); leader.Title = "";
             leader.Name = faction.Profile.LeaderName;
-            if (faction.Profile.Nomadic) for (int g = 0; g < 8; g++) capital.Residents.Add(Born(capital, faction.Id)); // caravan guards
-            for (int g = 0; g < 2; g++) MakeOfficer(homes.Count > 0 ? homes[(g + 1) % homes.Count] : capital, faction.Id, Rank.General);
-            for (int c = 0; c < (faction.Profile.Nomadic ? 3 : 6); c++) MakeOfficer(homes.Count > 0 ? homes[c % homes.Count] : capital, faction.Id, Rank.Captain);
+            if (faction.Profile.Nomadic) for (int g = 0; g < B.NomadGuards; g++) capital.Residents.Add(Born(capital, faction.Id)); // caravan guards
+            for (int g = 0; g < B.Generals; g++) MakeOfficer(homes.Count > 0 ? homes[(g + 1) % homes.Count] : capital, faction.Id, Rank.General);
+            for (int c = 0; c < (faction.Profile.Nomadic ? B.NomadCaptains : B.Captains); c++) MakeOfficer(homes.Count > 0 ? homes[c % homes.Count] : capital, faction.Id, Rank.Captain);
         }
     }
 
@@ -307,7 +329,7 @@ public sealed class IslandLife
             p.Loyalty = p.Traits.Contains("Leal") ? .95 : p.Traits.Contains("Ambicioso") ? .35 : .5 + _random.NextDouble() * .4;
         }
         p.Combat = Math.Max(p.Combat, rank switch { Rank.Leader => 60, Rank.General => 50, Rank.Captain => 40, _ => p.Combat });
-        if (!quiet) Raise("promotion", $"{p.DisplayName} foi promovido(a) a {RankLabel(rank)} de {Factions[p.Faction].Profile.Name}.", 0, 0);
+        if (!quiet) Raise("promotion", $"{p.DisplayName} foi promovido(a) a {RankLabel(rank)} de {Factions[p.Faction].Profile.Name}.", 0, 0, a: p.Faction, subject: p.DisplayName);
     }
 
     // ---------- main loop ----------
@@ -315,7 +337,7 @@ public sealed class IslandLife
     {
         if (!(hours > 0) || double.IsInfinity(hours)) throw new ArgumentOutOfRangeException(nameof(hours));
         Hours += hours;
-        foreach (var c in Cities) c.Now = Hours;
+        foreach (var c in Cities) { c.Now = Hours; c.SubjugatedPower = B.SubjugatedPower; }
         foreach (var squad in _squads.Where(s => !s.Done && !s.ControlledExternally).OrderBy(s => s.Id).ToList()) Travel(squad, hours);
         Encounters();
         foreach (var c in Cities) Upkeep(c, hours);
@@ -332,7 +354,7 @@ public sealed class IslandLife
         {
             var faction = Factions[_random.Next(Factions.Count)];
             if (faction.Extinct || _random.NextDouble() > .45 * Math.Max(.3, faction.Morale)) continue;
-            if (_squads.Count(s => !s.Done && s.Faction == faction.Id) >= (faction.Profile.Monsters ? 2 : 3)) continue;
+            if (_squads.Count(s => !s.Done && s.Faction == faction.Id) >= (faction.Profile.Monsters ? B.MonsterSquads : B.SquadsPerFaction)) continue;
             TryMission(faction);
         }
     }
@@ -363,7 +385,7 @@ public sealed class IslandLife
         }
         else if (faction.Profile.Monsters)
         {
-            kind = IslandMission.Raid; home.NextRaid = Hours + 18;
+            kind = IslandMission.Raid; home.NextRaid = Hours + B.MonsterRaidCooldownHours;
             target = Cities.Where(c => c.IsCity && AtWar(faction.Id, c.Owner)).OrderBy(c => Distance(c.Place, home.Place)).FirstOrDefault();
         }
         else
@@ -372,9 +394,9 @@ public sealed class IslandLife
             prey = _squads.Where(s => !s.Done && s.Alive > 0 && AtWar(faction.Id, s.Faction) && Distance(home.Place, s.X, s.Z) < 3000).OrderBy(s => Distance(home.Place, s.X, s.Z)).FirstOrDefault();
             var enemies = Cities.Where(c => c.Owner >= 0 && !c.IsLair && AtWar(faction.Id, c.Owner) && !Factions[c.Owner].Profile.Nomadic && !Factions[c.Owner].Profile.Monsters).ToList();
             int garrison = home.Residents.Count(r => r.Alive && r.Faction == faction.Id);
-            if (garrison - 4 < home.Capacity / 2) enemies.Clear(); // keep a garrison at home before marching
+            if (garrison - 4 < Math.Floor(home.Capacity * B.GarrisonShare)) enemies.Clear(); // keep a garrison at home before marching
             if (prey is not null) { kind = IslandMission.Hunt; target = home; }
-            else if (enemies.Count > 0 && _random.NextDouble() < .3 * faction.Morale)
+            else if (enemies.Count > 0 && _random.NextDouble() < B.RaidChance * faction.Morale)
             {
                 kind = IslandMission.Raid;
                 // Score: close, weakly defended, matching the faction's preferred targets, sworn enemy first.
@@ -385,8 +407,8 @@ public sealed class IslandLife
                     + (c.CapitalOf >= 0 ? -1.5 : 0)).FirstOrDefault();
             }
             else if ((faction.Profile.PreferredTargets.Contains("Nest") || _random.NextDouble() < .25)
-                && Cities.FirstOrDefault(c => c.IsLair && c.Owner == Monsters.Id && c.Residents.Count(r => r.Alive) >= 3 && c.HuntedUntil < Hours) is IslandCity lair)
-            { kind = IslandMission.Hunt; target = lair; lair.HuntedUntil = Hours + 24; } // one hunt per lair per day
+                && HasMonsters && Cities.FirstOrDefault(c => c.IsLair && c.Owner == MonsterId && c.Residents.Count(r => r.Alive) >= 3 && c.HuntedUntil < Hours) is IslandCity lair)
+            { kind = IslandMission.Hunt; target = lair; lair.HuntedUntil = Hours + B.LairHuntCooldownHours; } // one hunt per lair per day
             else { kind = IslandMission.Patrol; var own = Cities.Where(c => c.Owner == faction.Id && c != home).ToList(); target = own.Count > 0 ? own[_random.Next(own.Count)] : null; }
         }
         if (target is null) return;
@@ -401,7 +423,7 @@ public sealed class IslandLife
         // A captain leads most squads; raids on big targets may bring a general.
         var picked = ready.Where(p => !p.Officer).OrderByDescending(p => p.Combat).Take(size - 1).ToList();
         var officer = ready.Where(p => p.Officer && p.Rank != Rank.Leader && (p.Rank == Rank.Captain || kind == IslandMission.Raid)).OrderByDescending(p => p.Rank).FirstOrDefault();
-        if (officer != null) picked.Add(officer); else picked.AddRange(ready.Where(p => !p.Officer).Skip(size - 1).Take(1));
+        if (officer != null) picked.Add(officer); else picked.AddRange(ready.Where(p => !p.Officer && !picked.Contains(p)).Take(1));
         foreach (var p in picked) { squad.Members.Add(p); home.Residents.Remove(p); }
         _squads.Add(squad);
         string who = squad.Leader != null ? $"{squad.Leader.DisplayName} lidera" : "Um grupo de";
@@ -420,7 +442,7 @@ public sealed class IslandLife
         var exiles = _squads.FirstOrDefault(s => !s.Done && s.Faction == faction.Id);
         if (exiles != null) return;
         faction.Exiled = false; faction.Extinct = true;
-        Raise("extinct", $"{faction.Profile.Name} deixou de existir.", 0, 0);
+        Raise("extinct", $"{faction.Profile.Name} deixou de existir.", 0, 0, a: faction.Id);
     }
 
     // ---------- movement & combat ----------
@@ -487,25 +509,25 @@ public sealed class IslandLife
                 break;
             case IslandMission.Reconquest when city.Owner != squad.Faction:
                 Siege(squad, city);
-                if (Cities.Any(c => c.Owner == squad.Faction && c.IsCity)) { faction.Exiled = false; Raise("return", $"{faction.Profile.Name} retomou {city.Place.Name} e renasce!", city.Place.X, city.Place.Z); }
+                if (Cities.Any(c => c.Owner == squad.Faction && c.IsCity)) { faction.Exiled = false; Raise("return", $"{faction.Profile.Name} retomou {city.Place.Name} e renasce!", city.Place.X, city.Place.Z, a: faction.Id, place: city.Place.Id); }
                 if (squad.Done) return;
                 break;
-            case IslandMission.Hunt when city.Owner == Monsters.Id:
+            case IslandMission.Hunt when HasMonsters && city.Owner == MonsterId:
                 int culled = 0; Train(squad.Members, 2);
                 foreach (var r in city.Residents.Where(r => r.Alive).Take(1 + (int)(squad.Strength / 1.2))) { Wound(r, .6 + _random.NextDouble() * .6, squad.Leader); if (!r.Alive) culled++; }
                 foreach (var m in squad.Members.Where(m => m.Alive).Take(_random.Next(2))) Wound(m, .2 + _random.NextDouble() * .4, null);
-                Raise("hunt", $"{faction.Profile.Name} abateram {culled} mortos-vivos em {city.Place.Name}.", city.Place.X, city.Place.Z);
+                Raise("hunt", $"{faction.Profile.Name} abateram {culled} mortos-vivos em {city.Place.Name}.", city.Place.X, city.Place.Z, a: faction.Id, place: city.Place.Id);
                 break;
             case IslandMission.Trade when squad.Cargo <= 0 && city.Owner >= 0:
                 double profit = 25 * faction.Rules.Trade; faction.Treasury += profit; Factions[city.Owner].Treasury += profit * .6;
                 if (city.Owner != faction.Id) ChangeRelation(faction.Id, city.Owner, .01);
-                Raise("trade", $"Nômades venderam mercadorias em {city.Place.Name}.", city.Place.X, city.Place.Z, 0);
+                Raise("trade", $"Nômades venderam mercadorias em {city.Place.Name}.", city.Place.X, city.Place.Z, 0, place: city.Place.Id);
                 break;
             case IslandMission.Trade when squad.Cargo > 0:
                 city.Food += squad.Cargo; double price = squad.Cargo * 3 * faction.Rules.Trade;
                 if (city.Owner >= 0) Factions[city.Owner].Treasury -= price; faction.Treasury += price; squad.Cargo = 0;
                 if (city.Owner >= 0 && city.Owner != faction.Id) ChangeRelation(faction.Id, city.Owner, .02);
-                Raise("trade", $"Nômades venderam comida em {city.Place.Name}.", city.Place.X, city.Place.Z, 0);
+                Raise("trade", $"Nômades venderam comida em {city.Place.Name}.", city.Place.X, city.Place.Z, 0, place: city.Place.Id);
                 break;
         }
         GoHome(squad);
@@ -524,7 +546,7 @@ public sealed class IslandLife
             foreach (var m in squad.Members.Where(m => m.Alive)) Wound(m, .3 + _random.NextDouble() * .5, city.Residents.FirstOrDefault(r => r.Alive));
             foreach (var r in city.Residents.Where(r => r.Alive).Take(_random.Next(3))) Wound(r, .4 + _random.NextDouble() * .7, squad.Leader);
             attacker.WarWeariness += .5; defender.Morale = Math.Min(1.3, defender.Morale + .05);
-            Raise("siege", $"{city.Place.Name} resistiu ao ataque de {attacker.Profile.Name}.", city.Place.X, city.Place.Z);
+            Raise("siege", $"{city.Place.Name} resistiu ao ataque de {attacker.Profile.Name}.", city.Place.X, city.Place.Z, a: attacker.Id, b: city.Owner, place: city.Place.Id);
             return;
         }
         var killer = squad.Leader ?? squad.Members.FirstOrDefault(m => m.Alive);
@@ -532,7 +554,7 @@ public sealed class IslandLife
         if (attacker.Profile.Monsters)
         {   // The dead kill and plunder but never hold a place.
             city.Food *= .6; city.Unrest += .2;
-            Raise("massacre", $"Mortos-vivos devastaram {city.Place.Name}.", city.Place.X, city.Place.Z);
+            Raise("massacre", $"Mortos-vivos devastaram {city.Place.Name}.", city.Place.X, city.Place.Z, place: city.Place.Id);
             return;
         }
         bool wasCapital = city.CapitalOf == defenderId;
@@ -540,7 +562,7 @@ public sealed class IslandLife
         if (policy == ConquestPolicy.Liberate && city.PreviousOwner != defenderId && city.PreviousOwner >= 0 && !Factions[city.PreviousOwner].Extinct && city.PreviousOwner != squad.Faction)
         {
             SetOwner(city, city.PreviousOwner);
-            Raise("liberation", $"{attacker.Profile.Name} libertaram {city.Place.Name}; volta para {Factions[city.Owner].Profile.Name}.", city.Place.X, city.Place.Z);
+            Raise("liberation", $"{attacker.Profile.Name} libertaram {city.Place.Name}; volta para {Factions[city.Owner].Profile.Name}.", city.Place.X, city.Place.Z, a: attacker.Id, b: city.Owner, place: city.Place.Id);
         }
         else
         {
@@ -550,16 +572,16 @@ public sealed class IslandLife
                 switch (policy)
                 {
                     case ConquestPolicy.Execute: r.Health = 0; break;
-                    case ConquestPolicy.Convert: r.Faction = squad.Faction; r.Rank = Rank.Soldier; r.SubjugatedUntil = Hours + 24 * 15; break;
-                    case ConquestPolicy.Integrate: r.Faction = squad.Faction; r.Rank = Rank.Soldier; r.SubjugatedUntil = Hours + 24 * 15; break;
-                    default: r.Faction = squad.Faction; r.SubjugatedUntil = Hours + 24 * 30; city.Unrest += .05; break; // exploited serfs
+                    case ConquestPolicy.Convert: r.Faction = squad.Faction; r.Rank = Rank.Soldier; r.SubjugatedUntil = Hours + 24 * B.SubjugationDays; break;
+                    case ConquestPolicy.Integrate: r.Faction = squad.Faction; r.Rank = Rank.Soldier; r.SubjugatedUntil = Hours + 24 * B.SubjugationDays; break;
+                    default: r.Faction = squad.Faction; r.SubjugatedUntil = Hours + 24 * B.SerfdomDays; city.Unrest += .05; break; // exploited serfs
                 }
             }
             city.Residents.RemoveAll(r => !r.Alive);
             city.Unrest = Math.Min(1.5, city.Unrest + (policy == ConquestPolicy.Exploit ? .5 : .25));
             foreach (var m in squad.Members.Where(m => m.Alive)) { m.Home = city.Place.Id; city.Residents.Add(m); }
             squad.Done = true;
-            Raise("capture", $"{attacker.Profile.Name} tomaram {city.Place.Name} de {defender.Profile.Name} ({PolicyLabel(policy)}).", city.Place.X, city.Place.Z);
+            Raise("capture", $"{attacker.Profile.Name} tomaram {city.Place.Name} de {defender.Profile.Name} ({PolicyLabel(policy)}).", city.Place.X, city.Place.Z, a: attacker.Id, b: defender.Id, place: city.Place.Id);
         }
         ChangeRelation(squad.Faction, defenderId, -.25);
         defender.Morale = Math.Max(.2, defender.Morale - (wasCapital ? .5 : .15)); attacker.Morale = Math.Min(1.3, attacker.Morale + .1);
@@ -572,13 +594,13 @@ public sealed class IslandLife
         lost.CapitalOf = -1;
         var next = Cities.Where(c => c.Owner == faction.Id && c.IsCity).OrderByDescending(c => c.Residents.Count).FirstOrDefault();
         if (next != null) next.CapitalOf = faction.Id;
-        Raise("crisis", $"A capital de {faction.Profile.Name} caiu! {(next != null ? $"Nova capital: {next.Place.Name}." : "Sem capital.")}", lost.Place.X, lost.Place.Z);
+        Raise("crisis", $"A capital de {faction.Profile.Name} caiu! {(next != null ? $"Nova capital: {next.Place.Name}." : "Sem capital.")}", lost.Place.X, lost.Place.Z, a: faction.Id, place: lost.Place.Id);
         // Vassalage: a faction reduced to one city submits to a strong neighbour that exploits or rules by hierarchy.
         int left = Cities.Count(c => c.Owner == faction.Id && c.IsCity);
         if (left == 1 && faction.VassalOf is null)
         {
             var lord = Factions.Where(f => f.Id != faction.Id && AtWar(f.Id, faction.Id) && !f.Profile.Monsters && f.Profile.Conquest is ConquestPolicy.Exploit or ConquestPolicy.Integrate).OrderByDescending(f => f.Power).FirstOrDefault();
-            if (lord != null) { faction.VassalOf = lord.Id; SetWar(faction.Id, lord.Id, false); _relations[faction.Id, lord.Id] = _relations[lord.Id, faction.Id] = .3; Raise("vassal", $"{faction.Profile.Name} jurou vassalagem a {lord.Profile.Name}.", 0, 0); }
+            if (lord != null) { faction.VassalOf = lord.Id; SetWar(faction.Id, lord.Id, false); _relations[faction.Id, lord.Id] = _relations[lord.Id, faction.Id] = .3; Raise("vassal", $"{faction.Profile.Name} jurou vassalagem a {lord.Profile.Name}.", 0, 0, a: faction.Id, b: lord.Id); }
         }
     }
 
@@ -587,16 +609,16 @@ public sealed class IslandLife
         if (faction.Profile.Monsters || faction.Profile.Nomadic || Cities.Any(c => c.Owner == faction.Id && c.IsCity)) return;
         // Officers may swear to the conqueror (absorption); the rest become exiles trying to retake a city.
         foreach (var o in AllPeople().Where(p => p.Alive && p.Faction == faction.Id && p.Officer).ToList())
-            if (o.Loyalty < .5 && _random.NextDouble() < .6) Defect(o, conqueror.Id);
+            if (o.Loyalty < .5 && !o.Traits.Contains("Honrado") && _random.NextDouble() < .6) Defect(o, conqueror.Id);
         var survivors = AllPeople().Where(p => p.Alive && p.Faction == faction.Id).ToList();
         foreach (var site in Cities.Where(c => c.Owner == faction.Id)) SetOwner(site, conqueror.Id);
-        if (survivors.Count < 3) { faction.Extinct = true; Raise("extinct", $"{faction.Profile.Name} foi extinta por {conqueror.Profile.Name}.", 0, 0); return; }
+        if (survivors.Count < 3) { faction.Extinct = true; Raise("extinct", $"{faction.Profile.Name} foi extinta por {conqueror.Profile.Name}.", 0, 0, a: faction.Id, b: conqueror.Id); return; }
         faction.Exiled = true;
         var target = Cities.Where(c => c.IsCity && c.OriginalOwner == faction.Id).OrderBy(c => c.Defence).First();
         var exiles = new IslandSquad(++_squadIds, faction.Id, IslandMission.Reconquest, target.Place.Id, target.Place.Id) { X = survivors[0].Home >= 0 ? Place(survivors[0].Home).X : 0, Z = survivors[0].Home >= 0 ? Place(survivors[0].Home).Z : 0 };
         foreach (var s in survivors) { foreach (var c in Cities) c.Residents.Remove(s); foreach (var q in _squads) q.Members.Remove(s); exiles.Members.Add(s); }
         exiles.Path.Add(target.Place.Id); _squads.Add(exiles);
-        Raise("exile", $"{faction.Profile.Name} perdeu todas as cidades; exilados marcham para retomar {target.Place.Name}.", exiles.X, exiles.Z);
+        Raise("exile", $"{faction.Profile.Name} perdeu todas as cidades; exilados marcham para retomar {target.Place.Name}.", exiles.X, exiles.Z, a: faction.Id, place: target.Place.Id);
     }
 
     void GoHome(IslandSquad squad)
@@ -637,16 +659,16 @@ public sealed class IslandLife
     }
 
     // Aggressive regimes sometimes rob nomad caravans when relations are poor.
-    bool RaidsNomads(int faction) => Factions[faction].Profile.Ideology is Ideology.Authoritarian or Ideology.Feudalism && Relation(faction, Nomads.Id) < .2;
+    bool RaidsNomads(int faction) => HasNomads && Factions[faction].Profile.Ideology is Ideology.Authoritarian or Ideology.Feudalism && Relation(faction, Nomads.Id) < .2;
 
     /// <summary>Resolves a fight between two squads (off-screen, or reported by the engine).</summary>
     public void Fight(IslandSquad a, IslandSquad b)
     {
-        int startA = a.Alive, startB = b.Alive;
+        int startA = a.Alive, startB = b.Alive; double holdA = Nerve(a), holdB = Nerve(b);
         for (int round = 0; round < 6 && a.Alive > 0 && b.Alive > 0; round++)
         {
             Volley(a, b); Volley(b, a);
-            if (a.Alive * 2 < startA || b.Alive * 2 < startB) break; // morale breaks
+            if (a.Alive < startA * holdA || b.Alive < startB * holdB) break; // morale breaks: a coward leader pulls out early, a brave one holds
         }
         var (winner, loser) = a.Strength >= b.Strength ? (a, b) : (b, a);
         int dead = loser.Members.Count(m => !m.Alive);
@@ -655,10 +677,13 @@ public sealed class IslandLife
         ChangeRelation(a.Faction, b.Faction, -.05);
         Factions[loser.Faction].WarWeariness += dead * .2;
         if (winner.Leader is IslandPerson hero) { hero.Kills += dead; ConsiderPromotion(hero); }
-        Raise("fight", $"{Factions[winner.Faction].Profile.Name}{(winner.Leader != null ? $" ({winner.Leader.DisplayName})" : "")} venceram {Factions[loser.Faction].Profile.Name} perto de {NearestPlace(a.X, a.Z).Name} ({dead} mortos).", a.X, a.Z);
+        Raise("fight", $"{Factions[winner.Faction].Profile.Name}{(winner.Leader != null ? $" ({winner.Leader.DisplayName})" : "")} venceram {Factions[loser.Faction].Profile.Name} perto de {NearestPlace(a.X, a.Z).Name} ({dead} mortos).", a.X, a.Z, a: winner.Faction, b: loser.Faction, place: NearestPlace(a.X, a.Z).Id);
         if (loser.Alive == 0) loser.Done = true; else GoHome(loser);
         if (winner.Alive * 2 < winner.Members.Count) GoHome(winner);
     }
+
+    // Share of the squad that must still stand for it to keep fighting, set by its leader's temper.
+    static double Nerve(IslandSquad s) => s.Leader?.Traits is { } t ? t.Contains("Covarde") ? .75 : t.Contains("Corajoso") ? .25 : .5 : .5;
 
     // Caravans crossing the land of a predatory or broke regime may be held up (the nomads answer with an embargo).
     void TryRobCaravan(IslandSquad caravan, double hours)
@@ -671,16 +696,17 @@ public sealed class IslandLife
         if (_random.NextDouble() > greed * hours) return;
         double loot = caravan.Cargo; caravan.Cargo = 0; robber.Treasury += 60 + loot * 2;
         foreach (var m in caravan.Members.Where(m => m.Alive).Take(1 + _random.Next(2))) Wound(m, .3 + _random.NextDouble() * .5, null);
-        Raise("robbery", $"{robber.Profile.Name} assaltaram uma caravana nômade perto de {city.Place.Name}.", caravan.X, caravan.Z);
+        Raise("robbery", $"{robber.Profile.Name} assaltaram uma caravana nômade perto de {city.Place.Name}.", caravan.X, caravan.Z, a: robber.Id, place: city.Place.Id);
         NomadsRobbed(robber.Id); GoHome(caravan);
     }
 
     void NomadsRobbed(int robber)
     {
-        _embargoUntil[robber] = Hours + 24 * 10;
+        if (!HasNomads) return;
+        _embargoUntil[robber] = Hours + 24 * B.EmbargoDays;
         ChangeRelation(robber, Nomads.Id, -.3);
         foreach (var f in Factions.Where(f => f.Id != robber && !f.Profile.Monsters && !f.Profile.Nomadic)) ChangeRelation(robber, f.Id, -.05);
-        Raise("embargo", $"{Factions[robber].Profile.Name} roubaram uma caravana nômade; os nômades cortam o comércio com eles.", 0, 0);
+        Raise("embargo", $"{Factions[robber].Profile.Name} roubaram uma caravana nômade; os nômades cortam o comércio com eles.", 0, 0, a: robber);
     }
 
     void Volley(IslandSquad shooters, IslandSquad targets)
@@ -710,7 +736,7 @@ public sealed class IslandLife
     void OfficerDied(IslandPerson officer, IslandPerson? killer)
     {
         var faction = Factions[officer.Faction];
-        Raise("death", $"{officer.DisplayName}, {RankLabel(officer.Rank)} de {faction.Profile.Name}, caiu{(killer != null ? $" diante de {killer.DisplayName}" : "")}.", 0, 0);
+        Raise("death", $"{officer.DisplayName}, {RankLabel(officer.Rank)} de {faction.Profile.Name}, caiu{(killer != null ? $" diante de {killer.DisplayName}" : "")}.", 0, 0, a: faction.Id, subject: officer.DisplayName);
         if (officer.Rank == Rank.Leader) Succession(faction);
         else if (officer.Rank == Rank.General) FillRank(faction, Rank.General);
         else FillRank(faction, Rank.Captain);
@@ -726,7 +752,7 @@ public sealed class IslandLife
         var heir = generals[0];
         if (generals.Count > 1 && generals[1].Ambition > .6) heir = Duel(generals[0], generals[1]);
         Promote(heir, Rank.Leader);
-        Raise("succession", $"{heir.DisplayName} é o novo líder de {faction.Profile.Name}.", 0, 0);
+        Raise("succession", $"{heir.DisplayName} é o novo líder de {faction.Profile.Name}.", 0, 0, a: faction.Id, subject: heir.DisplayName);
         FillRank(faction, Rank.General);
     }
 
@@ -734,13 +760,13 @@ public sealed class IslandLife
     {
         var (winner, loser) = a.Power * (.7 + _random.NextDouble() * .6) >= b.Power * (.7 + _random.NextDouble() * .6) ? (a, b) : (b, a);
         loser.Health = 0; winner.Kills++;
-        Raise("duel", $"Duelo em {Factions[a.Faction].Profile.Name}: {winner.DisplayName} matou {loser.DisplayName}.", 0, 0);
+        Raise("duel", $"Duelo em {Factions[a.Faction].Profile.Name}: {winner.DisplayName} matou {loser.DisplayName}.", 0, 0, a: a.Faction, subject: winner.DisplayName);
         return winner;
     }
 
     void FillRank(IslandFaction faction, Rank rank)
     {
-        int wanted = rank == Rank.General ? 2 : faction.Profile.Nomadic ? 3 : 6;
+        int wanted = rank == Rank.General ? B.Generals : faction.Profile.Nomadic ? B.NomadCaptains : B.Captains;
         int have = Officers(faction.Id).Count(o => o.Rank == rank);
         for (int i = have; i < wanted; i++)
         {
@@ -752,13 +778,13 @@ public sealed class IslandLife
 
     void ConsiderPromotion(IslandPerson hero)
     {
-        if (hero.Rank == Rank.Captain && hero.Kills >= 6 && Officers(hero.Faction).Count(o => o.Rank == Rank.General) < 2) Promote(hero, Rank.General);
+        if (hero.Rank == Rank.Captain && hero.Kills >= B.PromotionKills && Officers(hero.Faction).Count(o => o.Rank == Rank.General) < B.Generals) Promote(hero, Rank.General);
     }
 
     void Defect(IslandPerson officer, int to, bool quiet = false)
     {
         int from = officer.Faction; officer.Faction = to; officer.Loyalty = .5; if (officer.Rank > Rank.Captain) officer.Rank = Rank.Captain;
-        if (!quiet) Raise("betrayal", $"{officer.DisplayName} trocou {Factions[from].Profile.Name} por {Factions[to].Profile.Name}.", 0, 0);
+        if (!quiet) Raise("betrayal", $"{officer.DisplayName} trocou {Factions[from].Profile.Name} por {Factions[to].Profile.Name}.", 0, 0, a: from, b: to, subject: officer.DisplayName);
         FillRank(Factions[from], Rank.Captain);
     }
 
@@ -769,14 +795,14 @@ public sealed class IslandLife
         {
             officer.Memory.Add($"Derrotou o jogador (dia {Hours / 24:0})"); officer.Kills++;
             if (officer.Rank == Rank.Captain && officer.Memory.Count(m => m.StartsWith("Derrotou")) >= 2) Promote(officer, Rank.General);
-            Raise("nemesis", $"{officer.DisplayName} se gaba de ter derrotado você.", 0, 0);
+            Raise("nemesis", $"{officer.DisplayName} se gaba de ter derrotado você.", 0, 0, a: officer.Faction, subject: officer.DisplayName);
         }
         else if (officer.Alive)
         {
             officer.Memory.Add($"Fugiu ferido do jogador (dia {Hours / 24:0})");
             if (!officer.Traits.Contains("Vingativo")) officer.Traits.Add("Vingativo");
             if (!officer.Traits.Contains("Cicatriz")) officer.Traits.Add("Cicatriz");
-            Raise("nemesis", $"{officer.DisplayName} sobreviveu e jurou vingança contra você.", 0, 0);
+            Raise("nemesis", $"{officer.DisplayName} sobreviveu e jurou vingança contra você.", 0, 0, a: officer.Faction, subject: officer.DisplayName);
         }
     }
 
@@ -791,12 +817,12 @@ public sealed class IslandLife
     {
         if (c.Owner < 0) return;
         var f = Factions[c.Owner];
-        double production = (c.Place.Kind switch { "Farm" => 3, "Fishing" or "Port" => 2.2, "Village" => 1.1, "Town" => .9, "Mine" => .5, _ => 0 }) * f.Rules.Production;
+        double production = Config.Rule(c.Place.Kind).Production * f.Rules.Production;
         if (f.Profile.Monsters) production = 0;
-        c.Food = Math.Max(0, c.Food + (production - .04 * c.Residents.Count(r => r.Alive)) * hours);
+        c.Food = Math.Max(0, c.Food + (production - B.ConsumptionPerResident * c.Residents.Count(r => r.Alive)) * hours);
         foreach (var r in c.Residents.Where(r => r.Alive)) r.Health = Math.Min(1, r.Health + (c.Food > 0 ? .02 : .005) * hours);
         c.Residents.RemoveAll(r => !r.Alive);
-        double growth = hours * (f.Profile.Monsters ? .08 : c.Food > 10 ? .045 * f.Rules.Growth : 0);
+        double growth = hours * (f.Profile.Monsters ? B.MonsterGrowth : c.Food > 10 ? B.Growth * f.Rules.Growth : 0);
         if (c.Residents.Count < c.Capacity && _random.NextDouble() < growth) c.Residents.Add(Born(c, c.Owner));
     }
 
@@ -806,32 +832,31 @@ public sealed class IslandLife
         {
             var mine = Cities.Where(c => c.Owner == f.Id).ToList();
             // Taxes fill the treasury; the treasury hires soldiers (more under levy-heavy ideologies).
-            f.Treasury += mine.Sum(c => c.Residents.Count) * 2 * f.Rules.Tax * 10;
-            if (f.VassalOf is int lord) { double tribute = f.Treasury * .3; f.Treasury -= tribute; Factions[lord].Treasury += tribute; }
+            f.Treasury += mine.Sum(c => c.Residents.Count) * 2 * f.Rules.Tax * B.TaxScale;
+            if (f.VassalOf is int lord) { double tribute = f.Treasury * B.VassalTribute; f.Treasury -= tribute; Factions[lord].Treasury += tribute; }
             foreach (var c in mine.Where(c => c.IsCity && c.Residents.Count < c.Capacity))
-                if (f.Treasury > 40) { f.Treasury -= 40 / f.Rules.Recruit; c.Residents.Add(Born(c, f.Id)); }
+                if (f.Treasury > B.RecruitCost) { f.Treasury -= B.RecruitCost / f.Rules.Recruit; c.Residents.Add(Born(c, f.Id)); }
             f.WarWeariness *= .9; f.Morale += (1 - f.Morale) * .05 + f.PlayerInfluence * .002;
-            int over = Math.Max(0, Cities.Count(c => c.Owner == f.Id && c.IsCity) - 6); // overextension: big empires are hard to hold
+            int over = Math.Max(0, Cities.Count(c => c.Owner == f.Id && c.IsCity) - B.OverextensionCities); // overextension: big empires are hard to hold
             f.Morale = Math.Max(.2, f.Morale - over * .02);
             // Unrest: ideology, hunger, conquest; revolts hand the city back or break free.
             foreach (var c in mine.Where(c => c.IsCity))
             {
                 c.Unrest = Math.Max(0, c.Unrest * .93 + f.Rules.Unrest * .05 + (c.Food <= 0 ? .15 : 0) + f.WarWeariness * .01 - (c.Food > 40 ? .03 : 0) + over * .025 + (c.Residents.Any(r => r.SubjugatedUntil > Hours) ? .04 : 0));
-                if (f.Rules.Purges && c.Unrest > .6 && c.Residents.Count > 3 && Hours >= c.NextPurge) { c.NextPurge = Hours + 24 * 7; var victim = c.Residents.Where(r => !r.Officer).OrderBy(r => r.Loyalty).FirstOrDefault(); if (victim != null) victim.Health = 0; c.Unrest -= .3; Raise("purge", $"Expurgo em {c.Place.Name}: dissidentes executados por {f.Profile.Name}.", c.Place.X, c.Place.Z, 0); }
+                if (f.Rules.Purges && c.Unrest > .6 && c.Residents.Count > 3 && Hours >= c.NextPurge) { c.NextPurge = Hours + 24 * B.PurgeCooldownDays; var victim = c.Residents.Where(r => !r.Officer).OrderBy(r => r.Loyalty).FirstOrDefault(); if (victim != null) victim.Health = 0; c.Unrest -= .3; Raise("purge", $"Expurgo em {c.Place.Name}: dissidentes executados por {f.Profile.Name}.", c.Place.X, c.Place.Z, 0, a: f.Id, place: c.Place.Id); }
                 if (c.Unrest > 1 && Hours >= c.CalmUntil) Revolt(c);
             }
             // Ambitious, disloyal officers may defect to a stronger enemy.
-            foreach (var o in Officers(f.Id).Where(o => o.Rank != Rank.Leader && o.Loyalty < .3 && o.Ambition > .7).ToList())
+            foreach (var o in Officers(f.Id).Where(o => o.Rank != Rank.Leader && o.Loyalty < .3 && o.Ambition > .7 && !o.Traits.Contains("Honrado")).ToList())
             {
                 var stronger = Factions.Where(x => x.Id != f.Id && AtWar(x.Id, f.Id) && !x.Profile.Monsters && x.Power > f.Power * 1.3).OrderByDescending(x => x.Power).FirstOrDefault();
-                if (stronger != null && _random.NextDouble() < .15) Defect(o, stronger.Id);
+                if (stronger != null && _random.NextDouble() < B.DefectChance * (o.Traits.Contains("Ambicioso") ? 2 : 1)) Defect(o, stronger.Id);
             }
             // Rival captains settle rank by duel now and then.
             var captains = Officers(f.Id).Where(o => o.Rank == Rank.Captain && o.Ambition > .6).ToList();
-            if (captains.Count >= 2 && _random.NextDouble() < .04) { var w = Duel(captains[0], captains[1]); if (Officers(f.Id).Count(o => o.Rank == Rank.General) < 2) Promote(w, Rank.General); else FillRank(f, Rank.Captain); }
+            if (captains.Count >= 2 && _random.NextDouble() < B.DuelChance) { var w = Duel(captains[0], captains[1]); if (Officers(f.Id).Count(o => o.Rank == Rank.General) < 2) Promote(w, Rank.General); else FillRank(f, Rank.Captain); }
         }
-        var nomads = Nomads; var fair = City(FairPlace);
-        if (fair.Residents.Count(p => p.Faction == nomads.Id) < 14 && nomads.Treasury > 30) { nomads.Treasury -= 30; fair.Residents.Add(Born(fair, nomads.Id)); } // caravan recruits
+        if (HasNomads && Nomads is var nomads && City(FairPlace) is var fair && fair.Residents.Count(p => p.Faction == nomads.Id) < 14 && nomads.Treasury > 30) { nomads.Treasury -= 30; fair.Residents.Add(Born(fair, nomads.Id)); } // caravan recruits
         // Vassals rebel when their lord weakens or is overstretched by wars.
         foreach (var v in Factions.Where(x => x.VassalOf is int && !x.Extinct))
         {
@@ -840,10 +865,10 @@ public sealed class IslandLife
             if ((lord.Extinct || lord.Power < v.Power * 1.3 || lordWars >= 2) && _random.NextDouble() < .12)
             {
                 v.VassalOf = null; SetWar(v.Id, lord.Id, true); _relations[v.Id, lord.Id] = _relations[lord.Id, v.Id] = -.7;
-                Raise("betrayal", $"{v.Profile.Name} rompeu a vassalagem e se rebelou contra {lord.Profile.Name}.", 0, 0);
+                Raise("betrayal", $"{v.Profile.Name} rompeu a vassalagem e se rebelou contra {lord.Profile.Name}.", 0, 0, a: v.Id, b: lord.Id);
             }
         }
-        foreach (var f in Factions.Where(x => !x.Profile.Nomadic && !x.Profile.Monsters)) if (Relation(f.Id, Nomads.Id) < .35 && Hours >= _embargoUntil[f.Id]) ChangeRelation(f.Id, Nomads.Id, .01); // old grudges fade
+        if (HasNomads) foreach (var f in Factions.Where(x => !x.Profile.Nomadic && !x.Profile.Monsters)) if (Relation(f.Id, Nomads.Id) < .35 && Hours >= _embargoUntil[f.Id]) ChangeRelation(f.Id, Nomads.Id, .01); // old grudges fade
         UpdatePower();
         Diplomacy();
         if ((int)(Hours / 24) % 7 == 0) MoveFair();
@@ -856,12 +881,12 @@ public sealed class IslandLife
         int to = c.PreviousOwner != ruler && c.PreviousOwner >= 0 && !Factions[c.PreviousOwner].Extinct && !Factions[c.PreviousOwner].Profile.Monsters ? c.PreviousOwner
             : Factions.Where(f => f.Id != ruler && !f.Extinct && !f.Profile.Monsters && !f.Profile.Nomadic).OrderByDescending(f => Relation(f.Id, ruler) < 0 ? f.Power : 0).Select(f => f.Id).DefaultIfEmpty(-1).First();
         if (to < 0) return; // nobody left to turn to: the unrest simmers on
-        c.CalmUntil = Hours + 24 * 20; // a city that just revolted needs time before the next uprising
+        c.CalmUntil = Hours + 24 * B.RevoltCalmDays; // a city that just revolted needs time before the next uprising
         foreach (var r in c.Residents.Where(r => r.Officer && r.Faction == ruler)) r.Health = 0;
         c.Residents.RemoveAll(r => !r.Alive);
         foreach (var r in c.Residents) r.Faction = to;
         SetOwner(c, to); bool wasCapital = c.CapitalOf == ruler;
-        Raise("revolt", $"Revolta em {c.Place.Name}: o povo expulsou {Factions[ruler].Profile.Name} e se juntou a {Factions[to].Profile.Name}.", c.Place.X, c.Place.Z);
+        Raise("revolt", $"Revolta em {c.Place.Name}: o povo expulsou {Factions[ruler].Profile.Name} e se juntou a {Factions[to].Profile.Name}.", c.Place.X, c.Place.Z, a: ruler, b: to, place: c.Place.Id);
         if (wasCapital) CapitalFell(Factions[ruler], c);
         CheckExtinction(Factions[ruler], Factions[to]);
     }
@@ -881,14 +906,14 @@ public sealed class IslandLife
         double total = military.Sum(f => f.Power);
         var top = military.OrderByDescending(f => f.Power).FirstOrDefault();
         // Balance of power: the others close ranks against a faction holding over 35% of the island's power.
-        if (top != null && total > 0 && top.Power / total > .4 && Hours - _lastCoalition > 24 * 10)
+        if (top != null && total > 0 && top.Power / total > B.CoalitionShare && Hours - _lastCoalition > 24 * B.CoalitionCooldownDays)
         {
             // Grand coalition: everyone else makes peace among themselves and turns on the hegemon.
             _lastCoalition = Hours;
             foreach (var a in military.Where(f => f != top && f.VassalOf != top.Id)) { SetWar(a.Id, top.Id, true); _relations[a.Id, top.Id] = _relations[top.Id, a.Id] = -.8; }
             foreach (var a in military.Where(f => f != top)) foreach (var b in military.Where(f => f != top && f.Id > a.Id))
-                if (AtWar(a.Id, b.Id)) { SetWar(a.Id, b.Id, false); _truceUntil[a.Id, b.Id] = _truceUntil[b.Id, a.Id] = Hours + 24 * 15; _relations[a.Id, b.Id] = _relations[b.Id, a.Id] = .2; }
-            Raise("coalition", $"Grande coalizão contra {top.Profile.Name}: as outras facções selam a paz entre si.", 0, 0);
+                if (AtWar(a.Id, b.Id)) { SetWar(a.Id, b.Id, false); _truceUntil[a.Id, b.Id] = _truceUntil[b.Id, a.Id] = Hours + 24 * B.CoalitionTruceDays; _relations[a.Id, b.Id] = _relations[b.Id, a.Id] = .2; }
+            Raise("coalition", $"Grande coalizão contra {top.Profile.Name}: as outras facções selam a paz entre si.", 0, 0, b: top.Id);
         }
         if (top != null && total > 0 && top.Power / total > .3)
             foreach (var a in military.Where(f => f != top))
@@ -898,7 +923,7 @@ public sealed class IslandLife
                 {
                     bool wasAllied = StanceOf(a.Id, b.Id) == Stance.Alliance;
                     ChangeRelation(a.Id, b.Id, .03);
-                    if (!wasAllied && StanceOf(a.Id, b.Id) == Stance.Alliance) Raise("coalition", $"{a.Profile.Name} e {b.Profile.Name} se aliam contra {top.Profile.Name}.", 0, 0);
+                    if (!wasAllied && StanceOf(a.Id, b.Id) == Stance.Alliance) Raise("coalition", $"{a.Profile.Name} e {b.Profile.Name} se aliam contra {top.Profile.Name}.", 0, 0, a: a.Id, b: b.Id);
                 }
             }
         foreach (var a in military) foreach (var b in military.Where(f => f.Id > a.Id))
@@ -909,7 +934,7 @@ public sealed class IslandLife
             double foodA = Cities.Where(c => c.Owner == a.Id).Sum(c => c.Food), foodB = Cities.Where(c => c.Owner == b.Id).Sum(c => c.Food);
             double perA = foodA / popA, perB = foodB / popB;
             bool oreTrade = Cities.Any(c => c.Owner == a.Id && c.Place.Kind == "Mine") != Cities.Any(c => c.Owner == b.Id && c.Place.Kind == "Mine");
-            if (stance != Stance.War && Hours - _lastPact[a.Id, b.Id] > 24 * 8 && (Math.Max(perA, perB) > Math.Min(perA, perB) * 1.6 || (oreTrade && _random.NextDouble() < .2)))
+            if (stance != Stance.War && Hours - _lastPact[a.Id, b.Id] > 24 * B.PactCooldownDays && (Math.Max(perA, perB) > Math.Min(perA, perB) * B.PactFoodRatio || (oreTrade && _random.NextDouble() < .2)))
             {
                 _lastPact[a.Id, b.Id] = Hours; ChangeRelation(a.Id, b.Id, .12);
                 var (rich, poor) = perA >= perB ? (a, b) : (b, a);
@@ -918,14 +943,14 @@ public sealed class IslandLife
                 double food = richStore != null && poorStore != null ? Math.Min(40, richStore.Food * .3) : 0;
                 if (food > 0 && !oreTrade) { richStore!.Food -= food; poorStore!.Food += food; poor.Treasury -= food * 2; rich.Treasury += food * 2; }
                 else { a.Treasury += 60; b.Treasury += 60; }
-                Raise("pact", oreTrade ? $"Pacto de minério: {a.Profile.Name} e {b.Profile.Name} trocam ferro por prata." : $"Pacto comercial: {rich.Profile.Name} vende {food:0} de comida a {poor.Profile.Name}.", 0, 0);
+                Raise("pact", oreTrade ? $"Pacto de minério: {a.Profile.Name} e {b.Profile.Name} trocam ferro por prata." : $"Pacto comercial: {rich.Profile.Name} vende {food:0} de comida a {poor.Profile.Name}.", 0, 0, a: a.Id, b: b.Id);
             }
             // Defence pacts: a common enemy brings two factions together.
             var common = military.FirstOrDefault(c => c != a && c != b && AtWar(a.Id, c.Id) && AtWar(b.Id, c.Id));
             if (common != null && stance is Stance.Neutral or Stance.Hostile or Stance.Truce)
             {
                 ChangeRelation(a.Id, b.Id, .06);
-                if (StanceOf(a.Id, b.Id) == Stance.Alliance) Raise("pact", $"Pacto de defesa: {a.Profile.Name} e {b.Profile.Name} unem forças contra {common.Profile.Name}.", 0, 0);
+                if (StanceOf(a.Id, b.Id) == Stance.Alliance) Raise("pact", $"Pacto de defesa: {a.Profile.Name} e {b.Profile.Name} unem forças contra {common.Profile.Name}.", 0, 0, a: a.Id, b: b.Id);
             }
             // War drivers: sworn enemies resume after a truce; strong expansionist regimes invade weaker neighbours; hunger covets food.
             if (stance is Stance.Neutral or Stance.Hostile)
@@ -937,18 +962,18 @@ public sealed class IslandLife
                 if (sworn || (strong.Power > weak.Power * 1.25 && Relation(a.Id, b.Id) < .15 && _random.NextDouble() < appetite))
                 {
                     SetWar(a.Id, b.Id, true); _relations[a.Id, b.Id] = _relations[b.Id, a.Id] = Math.Min(Relation(a.Id, b.Id), -.6);
-                    Raise("war", sworn ? $"A trégua acabou: {a.Profile.Name} e {b.Profile.Name} voltam à guerra." : $"{strong.Profile.Name} invade {weak.Profile.Name}{(hunger > 0 ? " em busca de comida" : "")}.", 0, 0);
+                    Raise("war", sworn ? $"A trégua acabou: {a.Profile.Name} e {b.Profile.Name} voltam à guerra." : $"{strong.Profile.Name} invade {weak.Profile.Name}{(hunger > 0 ? " em busca de comida" : "")}.", 0, 0, a: a.Id, b: b.Id);
                     continue;
                 }
             }
             // War weariness brings truces; a broken balance brings declarations and betrayals.
-            if (stance == Stance.War && a.WarWeariness > 2 && b.WarWeariness > 2)
+            if (stance == Stance.War && a.WarWeariness > B.TruceWeariness && b.WarWeariness > B.TruceWeariness)
             {
-                SetWar(a.Id, b.Id, false); _truceUntil[a.Id, b.Id] = _truceUntil[b.Id, a.Id] = Hours + 24 * 10; _relations[a.Id, b.Id] = _relations[b.Id, a.Id] = -.2;
-                Raise("truce", $"Trégua de 10 dias entre {a.Profile.Name} e {b.Profile.Name}.", 0, 0);
+                SetWar(a.Id, b.Id, false); _truceUntil[a.Id, b.Id] = _truceUntil[b.Id, a.Id] = Hours + 24 * B.TruceDays; _relations[a.Id, b.Id] = _relations[b.Id, a.Id] = -.2;
+                Raise("truce", $"Trégua de {B.TruceDays:0} dias entre {a.Profile.Name} e {b.Profile.Name}.", 0, 0, a: a.Id, b: b.Id);
             }
             else if (stance != Stance.War && stance != Stance.Truce && stance != Stance.Vassal && Relation(a.Id, b.Id) < -.5)
-            { SetWar(a.Id, b.Id, true); Raise("war", $"{a.Profile.Name} declarou guerra a {b.Profile.Name}.", 0, 0); }
+            { SetWar(a.Id, b.Id, true); Raise("war", $"{a.Profile.Name} declarou guerra a {b.Profile.Name}.", 0, 0, a: a.Id, b: b.Id); }
             else if (stance == Stance.Alliance)
             {
                 var (big, small) = a.Power >= b.Power ? (a, b) : (b, a);
@@ -957,7 +982,7 @@ public sealed class IslandLife
                 bool sharedWar = military.Any(c => c != a && c != b && AtWar(a.Id, c.Id) && AtWar(b.Id, c.Id));
                 double temptation = ((bigLeader?.Ambition ?? 0) > .5 ? .05 : 0) + Aggression(big.Profile.Ideology) + (sharedWar ? 0 : .04);
                 if (small.Power < big.Power * .75 && _random.NextDouble() < temptation)
-                { _relations[a.Id, b.Id] = _relations[b.Id, a.Id] = -.8; SetWar(a.Id, b.Id, true); Raise("betrayal", $"Traição! {big.Profile.Name} rompeu a aliança e atacou {small.Profile.Name}.", 0, 0); }
+                { _relations[a.Id, b.Id] = _relations[b.Id, a.Id] = -.8; SetWar(a.Id, b.Id, true); Raise("betrayal", $"Traição! {big.Profile.Name} rompeu a aliança e atacou {small.Profile.Name}.", 0, 0, a: big.Id, b: small.Id); }
             }
         }
     }
@@ -969,12 +994,13 @@ public sealed class IslandLife
 
     void MoveFair()
     {
+        if (!HasNomads) return;
         var peaceful = Cities.Where(c => c.IsCity && c.Owner >= 0 && !AtWar(Nomads.Id, c.Owner)).ToList();
         if (peaceful.Count == 0) return;
         FairPlace = peaceful[_random.Next(peaceful.Count)].Place.Id;
         var fair = City(FairPlace);
         foreach (var n in Cities.SelectMany(c => c.Residents).Where(p => p.Faction == Nomads.Id).ToList()) { foreach (var c in Cities) c.Residents.Remove(n); fair.Residents.Add(n); n.Home = FairPlace; }
-        Raise("fair", $"A feira nômade agora acontece em {fair.Place.Name}.", fair.Place.X, fair.Place.Z, 0);
+        Raise("fair", $"A feira nômade agora acontece em {fair.Place.Name}.", fair.Place.X, fair.Place.Z, 0, place: fair.Place.Id);
     }
 
     void ChangeRelation(int a, int b, double delta)
@@ -984,9 +1010,13 @@ public sealed class IslandLife
         _relations[a, b] = _relations[b, a] = v;
     }
 
-    void Raise(string kind, string text, double x, double z, int priority = 1)
+    /// <summary>Optional translator: return the text for an event in your language (null keeps the built-in text).</summary>
+    public Func<IslandEvent, string?>? Localize { get; set; }
+
+    void Raise(string kind, string text, double x, double z, int priority = 1, int a = -1, int b = -1, int place = -1, string? subject = null)
     {
-        var e = new IslandEvent(Math.Round(Hours, 2), kind, text, x, z, priority);
+        var e = new IslandEvent(Math.Round(Hours, 2), kind, text, x, z, priority, a, b, place, subject);
+        if (Localize?.Invoke(e) is string local) e = e with { Text = local };
         _events.Add(e); if (_events.Count > 500) _events.RemoveAt(0);
         EventRaised?.Invoke(e);
     }

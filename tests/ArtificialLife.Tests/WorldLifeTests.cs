@@ -1,3 +1,4 @@
+#pragma warning disable CS0618 // WorldLife is obsolete but still covered
 using ArtificialLife.Core;
 using Xunit;
 using Xunit.Abstractions;
