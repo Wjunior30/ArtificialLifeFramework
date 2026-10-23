@@ -405,6 +405,20 @@ public sealed partial class IslandLife
         if (faction.Exiled) { Reconquest(faction); return; }
         IslandCity? home = homes.Count == 0 ? null : homes[_random.Next(homes.Count)];
         if (home is null) return;
+        // A city of ours under attack calls for help: the nearest home with fighters goes out to meet the raiders.
+        IslandSquad? raider = null;
+        if (!faction.Profile.Nomadic && !faction.Profile.Monsters)
+        {
+            raider = _squads.Where(s => !s.Done && s.Alive > 0 && s.Mission == IslandMission.Raid && AtWar(faction.Id, s.Faction)
+                && Cities.Any(c => c.Place.Id == s.Target && c.Owner == faction.Id)
+                && !_squads.Any(o => !o.Done && o.Faction == faction.Id && o.Prey == s)).OrderBy(s => s.Id).FirstOrDefault();
+            if (raider != null)
+            {
+                var threatened = Cities.First(c => c.Place.Id == raider.Target);
+                var helper = homes.Where(c => c.Residents.Count(r => r.Alive && !r.Wounded && r.Faction == faction.Id) >= 3).OrderBy(c => Distance(c.Place, threatened.Place)).FirstOrDefault();
+                if (helper != null) home = helper; else raider = null;
+            }
+        }
         var ready = home.Residents.Where(r => r.Alive && !r.Wounded && r.Faction == faction.Id).ToList();
         if (ready.Count < 3 || (faction.Profile.Monsters && Hours < home.NextRaid)) return;
         IslandMission kind; IslandCity? target = null; IslandSquad? prey = null; double cargo = 0;
@@ -430,7 +444,7 @@ public sealed partial class IslandLife
         else
         {
             // Intercept a hostile squad near home first; otherwise follow the faction's goals.
-            prey = _squads.Where(s => !s.Done && s.Alive > 0 && AtWar(faction.Id, s.Faction) && Distance(home.Place, s.X, s.Z) < 3000).OrderBy(s => Distance(home.Place, s.X, s.Z)).FirstOrDefault();
+            prey = raider ?? _squads.Where(s => !s.Done && s.Alive > 0 && AtWar(faction.Id, s.Faction) && Distance(home.Place, s.X, s.Z) < 3000).OrderBy(s => Distance(home.Place, s.X, s.Z)).FirstOrDefault();
             var enemies = Cities.Where(c => c.Owner >= 0 && !c.IsLair && AtWar(faction.Id, c.Owner) && !Factions[c.Owner].Profile.Nomadic && !Factions[c.Owner].Profile.Monsters).ToList();
             int garrison = home.Residents.Count(r => r.Alive && r.Faction == faction.Id);
             if (garrison - 4 < Math.Floor(home.Capacity * B.GarrisonShare)) enemies.Clear(); // keep a garrison at home before marching
@@ -438,12 +452,17 @@ public sealed partial class IslandLife
             else if (enemies.Count > 0 && _random.NextDouble() < B.RaidChance * faction.Morale)
             {
                 kind = IslandMission.Raid;
-                // Score: close, weakly defended, matching the faction's preferred targets, sworn enemy first.
+                // Score: close, weakly defended, matching the faction's preferred targets, sworn enemy first; then
+                // the economy of war: cut the food of a stronger enemy, strike a demoralised one, and join a city
+                // already under someone else's attack (its garrison is busy).
                 target = enemies.OrderByDescending(c =>
                     -Distance(home.Place, c.Place) / 1000 - c.Defence / 4
                     + (faction.Profile.PreferredTargets.Contains(c.Place.Kind) ? 2 : 0)
                     + (c.Owner == faction.Profile.SwornEnemy ? 2 : 0)
-                    + (c.CapitalOf >= 0 ? -1.5 : 0)).FirstOrDefault();
+                    + (c.CapitalOf >= 0 ? -1.5 : 0)
+                    + ((c.Place.Kind is "Farm" or "Fishing") && Factions[c.Owner].Power > faction.Power ? 1.5 : 0)
+                    + (Factions[c.Owner].Morale < .5 ? 1 : 0)
+                    + (_squads.Any(s => !s.Done && s.Alive > 0 && s.Mission == IslandMission.Raid && s.Target == c.Place.Id && s.Faction != faction.Id) ? 1 : 0)).FirstOrDefault();
             }
             else if ((faction.Profile.PreferredTargets.Contains("Nest") || _random.NextDouble() < .25)
                 && HasMonsters && Cities.FirstOrDefault(c => c.IsLair && c.Owner == MonsterId && c.Residents.Count(r => r.Alive) >= 3 && c.HuntedUntil < Hours) is IslandCity lair)
@@ -470,6 +489,7 @@ public sealed partial class IslandLife
         {
             IslandMission.Raid => $"{who} {Factions[faction.Id].Profile.Name} rumo a {target.Place.Name} ({Factions[target.Owner].Profile.Name}).",
             IslandMission.Trade => $"Caravana nômade leva {cargo:0} de comida para {target.Place.Name}.",
+            IslandMission.Hunt when prey != null && prey.Mission == IslandMission.Raid && Cities.Any(c => c.Place.Id == prey.Target && c.Owner == faction.Id) => $"{Factions[faction.Id].Profile.Name} saem para socorrer {Cities.First(c => c.Place.Id == prey.Target).Place.Name} contra {Factions[prey.Faction].Profile.Name}.",
             IslandMission.Hunt when prey != null => $"{Factions[faction.Id].Profile.Name} saem para interceptar {Factions[prey.Faction].Profile.Name}.",
             IslandMission.Hunt => $"{Factions[faction.Id].Profile.Name} caçam mortos-vivos em {target.Place.Name}.",
             _ => $"{Factions[faction.Id].Profile.Name} patrulham rumo a {target.Place.Name}.",

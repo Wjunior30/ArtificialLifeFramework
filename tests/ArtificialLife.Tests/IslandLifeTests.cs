@@ -65,6 +65,21 @@ public sealed class IslandLifeTests
     }
 
     [Fact]
+    public void ThreatenedCitiesReceiveRelief()
+    {
+        // When raiders march on a city, its faction sends fighters to meet them (relief), across seeds.
+        int relief = 0, raids = 0;
+        foreach (ulong seed in new ulong[] { 1, 2, 3, 4, 5 })
+        {
+            var life = Create(seed);
+            life.EventRaised += e => { if (e.Text.Contains("saem para socorrer")) relief++; if (e.Kind == "march") raids++; };
+            Run(life, 60);
+        }
+        output.WriteLine($"raids={raids} relief={relief}");
+        Assert.True(raids > 0 && relief > 0, $"raids={raids} relief={relief}");
+    }
+
+    [Fact]
     public void OfficersRememberThePlayer()
     {
         var life = Create(3);
