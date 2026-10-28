@@ -38,4 +38,23 @@ public sealed class NameForgeTests
         var towns = Enumerable.Range(0, 200).Select(_ => forge.Place("Town", NameCulture.Iron, ref random)).ToList();
         Assert.Equal(towns.Count, towns.Distinct().Count());
     }
+
+    [Fact]
+    public void RealWordsAndPlacesAreNeverGenerated()
+    {
+        // Pairs that produced real names in play (Porto Brumado, the surname Penitente) and others of every culture.
+        var real = new[] { "Brumado", "Penitente", "Penhedo", "Moureira", "Eisenstein", "Eisenberg", "Severino", "Aurelio", "Kamenski", "Kamenev", "Mourinho", "Ossário", "Tamimi", "Barreira", "Saleira" };
+        foreach (NameCulture culture in Enum.GetValues(typeof(NameCulture)))
+            for (ulong seed = 1; seed <= 6; seed++)
+            {
+                var random = new DeterministicRandom(seed); var forge = new NameForge();
+                for (int i = 0; i < 150; i++)
+                {
+                    var person = forge.Person(culture, i % 2 == 0, ref random).Split(' ');
+                    Assert.DoesNotContain(person, part => real.Contains(part, StringComparer.OrdinalIgnoreCase));
+                    var place = forge.Place(i % 3 == 0 ? "Port" : i % 3 == 1 ? "Town" : "Ruins", culture, ref random);
+                    Assert.DoesNotContain(place.Split(' '), part => real.Contains(part, StringComparer.OrdinalIgnoreCase));
+                }
+            }
+    }
 }

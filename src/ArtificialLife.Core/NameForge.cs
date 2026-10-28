@@ -53,6 +53,29 @@ public sealed class NameForge
         "Penha", "Lagarto", "Freixo", "Carvalhal", "Camposa", "Fontela", "Sertão", "Mariana", "Santarém", "Valença", "Viseu", "Braga", "Porto", "Lagos", "Faro", "Sines", "Tomar",
     };
 
+    // Real words, names, surnames and places the root+suffix pairs of the cultures can produce (found by listing every
+    // pair, 25/10/2026). Checked for surnames, given names and place names alike.
+    static readonly HashSet<string> RealWords = new(StringComparer.OrdinalIgnoreCase)
+    {
+        // Iron (German)
+        "Stahlberg", "Kronberg", "Kronstein", "Eisenberg", "Eisenstein", "Eisenheim", "Eisenach", "Hartberg", "Hartheim", "Hartstein", "Dornberg", "Dornfeld", "Dornheim",
+        "Felsberg", "Brandberg", "Brandstein", "Holtdorf", "Graustein", "Randberg",
+        // Ash (Latin)
+        "Aurelio", "Aurelius", "Aurelino", "Severino", "Santino", "Clarino", "Palio", "Festino", "Penitente", "Santana",
+        // Tide (Portuguese, maritime)
+        "Brumado", "Brumal", "Brumosa", "Saleira", "Salado", "Salino", "Salão", "Salal", "Remado", "Ostreira", "Ventaneira", "Gávião", "Gavião",
+        // Free (Slavic)
+        "Kamenov", "Kamenev", "Kamenski", "Kamenets", "Rudin", "Rudnik", "Rudenko", "Gorin", "Gorski", "Gornik", "Volski", "Kolev", "Kolin", "Kolar", "Mirov", "Lomov",
+        // Veil
+        "Ossário", "Funerário", "Velário", "Morris", "Morrell", "Veloz",
+        // Road (Arabic)
+        "Tamari", "Tamimi", "Zarah", "Nasira", "Falah", "Razan", "Mirah", "Halimi", "Kasimi",
+        // Common (Portuguese places and words)
+        "Ribeirinho", "Mourinho", "Moureira", "Barrão", "Barrela", "Barrosa", "Barral", "Barredo", "Barreira", "Barrado", "Campinho", "Campal", "Campeira", "Serrão", "Serrado",
+        "Penhedo", "Carvalhinho", "Carvalhosa", "Carvalheira", "Carvalhais", "Freixinho", "Freixosa", "Freixedo", "Lagareira",
+    };
+    static bool Real(string word) => RealWords.Contains(word) || RealPlaces.Contains(word);
+
     readonly HashSet<string> _usedPeople = new(StringComparer.OrdinalIgnoreCase), _usedTitles = new(StringComparer.OrdinalIgnoreCase), _usedPlaces = new(StringComparer.OrdinalIgnoreCase);
 
     internal string[][] ExportUsed() => new[] { _usedPeople.ToArray(), _usedTitles.ToArray(), _usedPlaces.ToArray() };
@@ -81,7 +104,7 @@ public sealed class NameForge
             string first = Capital(Word(ph, random.Next(2) + 1, female ? ph.FemaleEndings : ph.MaleEndings, ref random));
             string last = ph.SurnameRoots[random.Next(ph.SurnameRoots.Length)] + ph.SurnameSuffixes[random.Next(ph.SurnameSuffixes.Length)];
             string full = first + " " + last;
-            if (first.Length < 3 || first.Length > 8 || !Pronounceable(first) || Blocked.Contains(first) || Blocked.Contains(last) || ContainsBlocked(first) || !_usedPeople.Add(full)) continue;
+            if (first.Length < 3 || first.Length > 8 || !Pronounceable(first) || Blocked.Contains(first) || Blocked.Contains(last) || Real(first) || Real(last) || ContainsBlocked(first) || !_usedPeople.Add(full)) continue;
             return full;
         }
         return "Sem Nome " + _usedPeople.Count;
@@ -107,7 +130,7 @@ public sealed class NameForge
             string core = random.Next(3) == 0
                 ? Capital(Word(ph, 2, ph.MaleEndings, ref random))
                 : ph.SurnameRoots[random.Next(ph.SurnameRoots.Length)] + ph.SurnameSuffixes[random.Next(ph.SurnameSuffixes.Length)];
-            if (Blocked.Contains(core) || RealPlaces.Contains(core) || core.Length < 4 || core.Length > 12 || !Pronounceable(core)) continue;
+            if (Blocked.Contains(core) || Real(core) || core.Length < 4 || core.Length > 12 || !Pronounceable(core)) continue;
             string name = kind switch
             {
                 "Port" => "Porto " + core, "Mine" => "Mina de " + core, "Fishing" => "Enseada " + core, "Farm" => "Herdade " + core,
